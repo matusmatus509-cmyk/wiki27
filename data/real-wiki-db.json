@@ -1,0 +1,527 @@
+[
+  {
+    "title": "Alexander Dubček",
+    "slug": "Alexander_Dub%C4%8Dek",
+    "category": [
+      "person",
+      "history"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Andrej Hlinka",
+    "slug": "Andrej_Hlinka",
+    "category": [
+      "person",
+      "history"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Auto",
+    "slug": "Auto",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Bardejov",
+    "slug": "Bardejov",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Chlieb",
+    "slug": "Chlieb",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Dieťa",
+    "slug": "Die%C5%A5a",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Dom",
+    "slug": "Dom",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Dunaj",
+    "slug": "Dunaj",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Dvere",
+    "slug": "Dvere",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Elektrina",
+    "slug": "Elektrina",
+    "category": [
+      "science"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Futbal",
+    "slug": "Futbal",
+    "category": [
+      "sport"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Hokej",
+    "slug": "Hokej",
+    "category": [
+      "sport"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Hron",
+    "slug": "Hron",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Hruška",
+    "slug": "Hru%C5%A1ka",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Internet",
+    "slug": "Internet",
+    "category": [
+      "technology"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Jablko",
+    "slug": "Jablko",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Jeleň lesný",
+    "slug": "Jele%C5%88_lesn%C3%BD",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Juraj Jánošík",
+    "slug": "Juraj_J%C3%A1no%C5%A1%C3%ADk",
+    "category": [
+      "person",
+      "history"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Karpaty",
+    "slug": "Karpaty",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Kežmarok",
+    "slug": "Ke%C5%BEmarok",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Lekár",
+    "slug": "Lek%C3%A1r",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Levoča",
+    "slug": "Levo%C4%8Da",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Liptov",
+    "slug": "Liptov",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Lyžovanie",
+    "slug": "Ly%C5%BEovanie",
+    "category": [
+      "sport"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Láska",
+    "slug": "L%C3%A1ska",
+    "category": [
+      "culture"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Maslo",
+    "slug": "Maslo",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Medveď hnedý",
+    "slug": "Medve%C4%8F_hned%C3%BD",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Milan Rastislav Štefánik",
+    "slug": "Milan_Rastislav_%C5%A0tef%C3%A1nik",
+    "category": [
+      "person",
+      "history"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Mlieko",
+    "slug": "Mlieko",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Mobilný telefón",
+    "slug": "Mobiln%C3%BD_telef%C3%B3n",
+    "category": [
+      "technology"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Mrkva",
+    "slug": "Mrkva",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Myš domová",
+    "slug": "My%C5%A1_domov%C3%A1",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Nízke Tatry",
+    "slug": "N%C3%ADzke_Tatry",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Oheň",
+    "slug": "Ohe%C5%88",
+    "category": [
+      "science"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Okno",
+    "slug": "Okno",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Orava",
+    "slug": "Orava",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Paradajka",
+    "slug": "Paradajka",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Posteľ",
+    "slug": "Poste%C4%BE",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Počítač",
+    "slug": "Po%C4%8D%C3%ADta%C4%8D",
+    "category": [
+      "technology"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Pstruh potočný",
+    "slug": "Pstruh_poto%C4%8Dn%C3%BD",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Rodina",
+    "slug": "Rodina",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Slivka",
+    "slug": "Slivka",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Sloboda",
+    "slug": "Sloboda",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Spiš",
+    "slug": "Spi%C5%A1",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Srnec",
+    "slug": "Srnec",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Stolička",
+    "slug": "Stoli%C4%8Dka",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Straka obyčajná",
+    "slug": "Straka_oby%C4%8Dajn%C3%A1",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Stôl",
+    "slug": "St%C3%B4l",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Syr",
+    "slug": "Syr",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Tenis",
+    "slug": "Tenis",
+    "category": [
+      "sport"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Učiteľ",
+    "slug": "U%C4%8Dite%C4%BE",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Vajce",
+    "slug": "Vajce",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Vlk dravý",
+    "slug": "Vlk_drav%C3%BD",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Voda",
+    "slug": "Voda",
+    "category": [
+      "science"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Vysoké Tatry",
+    "slug": "Vysok%C3%A9_Tatry",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Vzduch",
+    "slug": "Vzduch",
+    "category": [
+      "science"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Váh",
+    "slug": "V%C3%A1h",
+    "category": [
+      "geography"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Včela medonosná",
+    "slug": "V%C4%8Dela_medonosn%C3%A1",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Zajac poľný",
+    "slug": "Zajac_po%C4%BEn%C3%BD",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Zemiak",
+    "slug": "Zemiak",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Západné Tatry",
+    "slug": "Z%C3%A1padn%C3%A9_Tatry",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Čerešňa",
+    "slug": "%C4%8Cere%C5%A1%C5%88a",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Ľudovít Štúr",
+    "slug": "%C4%BDudov%C3%ADt_%C5%A0t%C3%BAr",
+    "category": [
+      "person",
+      "history"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Šalvia",
+    "slug": "%C5%A0alvia",
+    "category": [
+      "nature"
+    ],
+    "hasImage": true
+  },
+  {
+    "title": "Škola",
+    "slug": "%C5%A0kola",
+    "category": [
+      "general"
+    ],
+    "hasImage": true
+  }
+]

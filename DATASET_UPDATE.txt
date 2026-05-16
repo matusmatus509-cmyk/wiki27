@@ -1,0 +1,3 @@
+Updated Slovak Wikipedia vocabulary dataset added.
+Dataset cleaned, deduplicated, grammar-fixed and UTF-safe.
+File: data/real-wiki-db.json

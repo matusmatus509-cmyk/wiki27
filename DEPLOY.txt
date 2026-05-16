@@ -1,0 +1,18 @@
+# Akronym SK Deploy
+
+## Vercel
+1. Upload project
+2. npm install
+3. npm run build
+
+## Important
+Dynamic route:
+- /wiki/[slug]
+
+Example:
+- /wiki/Bratislava
+
+## Notes
+- Optimized for Next.js App Router
+- Mobile Wikipedia proxy
+- Slovak force engine

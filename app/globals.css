@@ -1,0 +1,527 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   WIKIPEDIA MOBILE – Minerva Neue skin (sk.m.wikipedia.org)
+   ============================================================ */
+
+:root {
+  /* Wikimedia Design System farby */
+  --c-base:         #202122;
+  --c-90:           #eaecf0;
+  --c-80:           #c8ccd1;
+  --c-70:           #72777d;
+  --c-60:           #54595d;
+  --c-link:         #3366cc;
+  --c-visited:      #6b4596;
+  --c-red:          #d33;
+  --c-bg:           #ffffff;
+  --c-bg-grey:      #f8f9fa;
+  --c-bg-grey2:     #eaecf0;
+  --c-accent:       #3366cc;
+  --c-accent-dark:  #2a4b8d;
+
+  --background: #ffffff;
+  --foreground: #202122;
+  --card: #ffffff;
+  --card-foreground: #202122;
+  --popover: #ffffff;
+  --popover-foreground: #202122;
+  --primary: #3366cc;
+  --primary-foreground: #ffffff;
+  --secondary: #f8f9fa;
+  --secondary-foreground: #202122;
+  --muted: #eaecf0;
+  --muted-foreground: #54595d;
+  --accent: #eaecf0;
+  --accent-foreground: #202122;
+  --destructive: #d33;
+  --destructive-foreground: #ffffff;
+  --border: #c8ccd1;
+  --input: #ffffff;
+  --ring: #3366cc;
+  --radius: 2px;
+}
+
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  --font-serif: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+html {
+  font-size: 14px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #202122;
+  background-color: #f8f9fa;
+  min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Mobile frame on larger screens */
+@media (min-width: 600px) {
+  body {
+    max-width: 420px;
+    margin: 0 auto;
+    box-shadow: 0 0 24px rgba(0,0,0,0.12);
+    background: #fff;
+  }
+}
+
+/* Wikipedia Link Styles - CRITICAL: blue #36c, NO underline, underline on hover */
+a {
+  color: #3366cc;
+  text-decoration: none;
+}
+
+a:visited {
+  color: #6b4596;
+}
+
+a:active {
+  color: #d33;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Red links (non-existent articles) */
+a.new {
+  color: #d33;
+}
+
+/* Force links in article content */
+.mw-content a,
+.mw-section-body a,
+.mw-body a,
+.wiki-article-content a {
+  color: #3366cc;
+  text-decoration: none;
+}
+
+.mw-content a:hover,
+.mw-section-body a:hover,
+.mw-body a:hover,
+.wiki-article-content a:hover {
+  text-decoration: underline;
+}
+
+/* Sticky header */
+.mw-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #eaecf0;
+}
+
+/* Page wrapper */
+.mw-page {
+  background: #fff;
+}
+
+/* Page title */
+.mw-page-title-bar h1 {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 1.57rem;
+  font-weight: normal;
+  line-height: 1.3;
+  color: #202122;
+}
+
+/* Page actions bar */
+.mw-page-actions {
+  scrollbar-width: none;
+}
+
+.mw-page-actions::-webkit-scrollbar {
+  display: none;
+}
+
+/* Collapsible sections */
+.mw-section-header:active {
+  background: #eaecf0;
+}
+
+.mw-section-title {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #202122;
+  line-height: 1.3;
+}
+
+/* Floating thumbnails */
+.mw-thumb {
+  float: right;
+  clear: right;
+  margin: 0 0 8px 12px;
+  max-width: 120px;
+  border: 1px solid #eaecf0;
+  background: #fff;
+}
+
+.mw-thumb img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.mw-thumb-caption,
+.mw-thumb figcaption {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  color: #72777d;
+  padding: 3px 5px 4px;
+  text-align: center;
+  line-height: 1.3;
+  background: #f8f9fa;
+  border-top: 1px solid #eaecf0;
+}
+
+/* Icon buttons */
+.mw-btn-icon,
+.mw-icon-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  color: #202122;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+
+.mw-btn-icon:hover,
+.mw-icon-btn:hover {
+  background: #eaecf0;
+}
+
+.mw-btn-icon:active,
+.mw-icon-btn:active {
+  background: #c8ccd1;
+}
+
+.mw-btn-icon svg,
+.mw-icon-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+/* Search input styling */
+.mw-search-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #202122;
+  padding: 8px 8px 8px 34px;
+  outline: none;
+  line-height: 1.4;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.mw-search-input::placeholder {
+  color: #72777d;
+}
+
+.mw-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
+/* Search button */
+.mw-search-go,
+.mw-search-btn {
+  flex-shrink: 0;
+  background: #3366cc;
+  color: #fff;
+  border: 1px solid #2a4b8d;
+  border-radius: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
+}
+
+.mw-search-go:hover,
+.mw-search-btn:hover {
+  background: #2a4b8d;
+}
+
+.mw-search-go:active,
+.mw-search-btn:active {
+  background: #1d3d6f;
+}
+
+/* "On this day" date box */
+.mw-otd-date-box {
+  flex-shrink: 0;
+  background: #3366cc;
+  color: #fff;
+  border-radius: 3px;
+  padding: 6px 10px;
+  text-align: center;
+  min-width: 44px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  line-height: 1.2;
+}
+
+/* "Did you know" list */
+.mw-dyk-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.mw-dyk-list li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 7px 0;
+  border-bottom: 1px solid #eaecf0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.mw-dyk-list li:last-child {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+
+/* Clearfix */
+.mw-clearfix::after,
+.mw-section-body::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+/* Navigation separators */
+.mw-nav-sep,
+.mw-sep {
+  color: #c8ccd1;
+  padding: 0 5px;
+}
+
+/* Article content typography */
+.wiki-article-content {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #202122;
+}
+
+.wiki-article-content p {
+  margin-bottom: 0.7em;
+}
+
+.wiki-article-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Section headings in articles */
+.wiki-article-content h2 {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 1.29em;
+  font-weight: normal;
+  border-bottom: 1px solid #eaecf0;
+  padding-bottom: 4px;
+  margin: 1em 0 0.5em;
+  color: #202122;
+}
+
+.wiki-article-content h3 {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 1.07em;
+  font-weight: bold;
+  margin: 0.9em 0 0.4em;
+}
+
+/* Wikipedia infobox - mobile style */
+.wiki-article-content .infobox,
+.wiki-article-content .infopolje,
+.wiki-article-content .vcard {
+  float: right;
+  clear: right;
+  margin: 0 0 1em 1em;
+  padding: 0;
+  border: 1px solid #c8ccd1;
+  background: #f8f9fa;
+  font-size: 0.9em;
+  width: 140px;
+  max-width: 45%;
+}
+
+/* Thumb images - mobile style */
+.wiki-article-content .thumb {
+  margin: 0.5em 0 1em 1em;
+  float: right;
+  clear: right;
+  max-width: 140px;
+}
+
+.wiki-article-content .thumb.tleft {
+  float: left;
+  margin: 0.5em 1em 1em 0;
+}
+
+.wiki-article-content .thumbinner {
+  border: 1px solid #c8ccd1;
+  background: #f8f9fa;
+  padding: 3px;
+}
+
+.wiki-article-content .thumbcaption {
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 3px;
+  text-align: center;
+}
+
+.wiki-article-content .thumbimage {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Hide navigation boxes */
+.wiki-article-content .navbox,
+.wiki-article-content .sistersitebox,
+.wiki-article-content .side-box,
+.wiki-article-content .metadata,
+.wiki-article-content .ambox,
+.wiki-article-content .dmbox {
+  display: none;
+}
+
+/* Wikipedia tables */
+.wikitable {
+  background: #fff;
+  border: 1px solid #c8ccd1;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.875rem;
+  margin: 0.8em 0;
+}
+
+.wikitable th,
+.wikitable td {
+  border: 1px solid #c8ccd1;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.wikitable th {
+  background: #eaecf0;
+  font-weight: bold;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  color: #54595d;
+}
+
+/* Search dropdown suggestions */
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid #c8ccd1;
+  border-top: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.search-suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #202122;
+  border-bottom: 1px solid #eaecf0;
+}
+
+.search-suggestion:hover,
+.search-suggestion:focus {
+  background: #eaecf0;
+}
+
+.search-suggestion:last-child {
+  border-bottom: none;
+}
+
+/* Force link - must match Wikipedia exactly */
+.force-link {
+  color: #3366cc !important;
+  text-decoration: none !important;
+  background: none !important;
+  cursor: pointer;
+}
+
+.force-link:hover {
+  text-decoration: underline !important;
+  color: #3366cc !important;
+}
+
+/* Utility: selection color */
+::selection {
+  background: #b3d4fc;
+}
