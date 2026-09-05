@@ -205,13 +205,40 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       const maskText = config.maskText || 'História Slovenska';
       const maskSlug = maskText.toLowerCase().replace(/\s+/g, '-');
       const currentDisplay = displayValue.toLowerCase().trim();
-      
-      // Generate realistic suggestions based on what is displayed
-      // These should look like authentic autocomplete for what the viewer sees
+
+      // Kód spätnej väzby (druhý návrh) pre prípad zapnutého feedbacku
+      const applyFeedback = (list: SearchResult[]): SearchResult[] => {
+        if (config.showFeedback && config.forceName && list.length >= 2) {
+          const posLetter = String.fromCharCode(96 + config.forcePosition);
+          const feedbackCode = `${posLetter}-${config.forceName.toLowerCase()}`;
+          list[1] = { ...list[1], excerpt: feedbackCode };
+        }
+        return list;
+      };
+
+      // Zostavenie finálneho zoznamu: maskovací text vždy prvý, potom reálne
+      // výsledky hľadania podľa textu viditeľného na obrazovke (bez dupl.).
+      const buildList = (realResults: SearchResult[]): SearchResult[] => {
+        const list: SearchResult[] = [
+          {
+            title: maskText,
+            slug: maskSlug,
+            excerpt: 'Článok o histórii Slovenska',
+          },
+        ];
+        for (const suggestion of realResults) {
+          if (suggestion.title !== maskText && list.length < 8) {
+            list.push(suggestion);
+          }
+        }
+        return applyFeedback(list);
+      };
+
+      // Generátor záložných návrhov, keď API nie je dostupné — vyzerá ako
+      // autentický autocomplete pre to, čo vidí pozorovateľ na obrazovke.
       const generateRealisticSuggestions = (typed: string): SearchResult[] => {
         if (!typed) return [];
-        
-        // Create suggestions that start with or contain what's typed
+
         const suggestionMap: Record<string, string[]> = {
           'h': ['História', 'Hlavné mesto', 'Hudba', 'Húsky', 'Habsburgovci'],
           'hi': ['História', 'Himaláje', 'Hinduizmus', 'Hippokrates', 'Hirošima'],
@@ -223,78 +250,93 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
           'histór': ['História', 'História Slovenska', 'História Európy', 'História umenia', 'História filozofie'],
           'história': ['História', 'História Slovenska', 'História Európy', 'História umenia', 'História vedy'],
           'história ': ['História Slovenska', 'História Európy', 'História umenia', 'História Bratislavy', 'História Česka'],
-          'história s': ['História Slovenska', 'História stredoveku', 'História Slovanů', 'História Španielska', 'História sveta'],
-          'história sl': ['História Slovenska', 'História Slovanů', 'História Slovinska', 'História slovanskej kultúry'],
-          'história slo': ['História Slovenska', 'História Slovanů', 'História Slovinska', 'História slovenčiny'],
-          'história slov': ['História Slovenska', 'História Slovanů', 'História slovenčiny', 'História slovenského národa'],
-          'história slove': ['História Slovenska', 'História slovenčiny', 'História slovenského národa', 'História Slovenov'],
-          'história sloven': ['História Slovenska', 'História slovenčiny', 'História slovenského národa', 'História slovenských dejín'],
-          'história slovens': ['História Slovenska', 'História slovenského národa', 'História slovenských kráľov'],
+          'história s': ['História Slovenska', 'História stredoveku', 'História Španielska', 'História sveta'],
+          'história sl': ['História Slovenska', 'História Slovinska', 'História slovanskej kultúry'],
+          'história slo': ['História Slovenska', 'História Slovinska', 'História slovenčiny'],
+          'história slov': ['História Slovenska', 'História slovenčiny', 'História slovenského národa'],
+          'história slove': ['História Slovenska', 'História slovenčiny', 'História slovenského národa'],
+          'história sloven': ['História Slovenska', 'História slovenčiny', 'História slovenského národa'],
+          'história slovens': ['História Slovenska', 'História slovenského národa'],
           'história slovensk': ['História Slovenska', 'História slovenského jazyka', 'História slovenského národa'],
           'história slovensko': ['História Slovenska'],
           'história slovenska': ['História Slovenska'],
         };
-        
-        // Find the best matching key
+
         let bestMatch = '';
         for (const key of Object.keys(suggestionMap)) {
           if (typed.startsWith(key) && key.length > bestMatch.length) {
             bestMatch = key;
           }
         }
-        
+
         if (bestMatch && suggestionMap[bestMatch]) {
           return suggestionMap[bestMatch].map(title => ({
             title,
             slug: title.toLowerCase().replace(/\s+/g, '-'),
-            excerpt: `Článok o téme ${title}`
+            excerpt: `Článok o téme ${title}`,
           }));
         }
-        
-        // Fallback - generate based on first letters
+
         const firstWord = typed.split(' ')[0];
         if (firstWord.length >= 1) {
-          // Generate some generic suggestions that start with the same letters
           const baseTitle = typed.charAt(0).toUpperCase() + typed.slice(1);
           return [
             { title: baseTitle, slug: baseTitle.toLowerCase().replace(/\s+/g, '-'), excerpt: `Hľadať "${baseTitle}"` },
           ];
         }
-        
+
         return [];
       };
-      
-      let results: SearchResult[] = [];
-      
-      // First result should always be the full mask text (the target)
-      results.push({
-        title: maskText,
-        slug: maskSlug,
-        excerpt: 'Článok o histórii Slovenska'
-      });
-      
-      // Add realistic suggestions based on what's displayed
-      const realisticSuggestions = generateRealisticSuggestions(currentDisplay);
-      
-      // Filter out duplicates with maskText and add to results
-      for (const suggestion of realisticSuggestions) {
-        if (suggestion.title !== maskText && results.length < 6) {
-          results.push(suggestion);
-        }
-      }
 
-      if (config.showFeedback && config.forceName && results.length >= 2) {
-        const posLetter = String.fromCharCode(96 + config.forcePosition);
-        const feedbackCode = `${posLetter}-${config.forceName.toLowerCase()}`;
-        results[1] = {
-          ...results[1],
-          excerpt: `${feedbackCode}`
-        };
-      }
-
-      setSuggestions(results);
+      // OKAMŽITÝ stav: maskovací text prvý + záložné návrhy, aby dropdown
+      // nereagoval s oneskorením. Realne výsledky z Wikipédie ho hneď doplnia.
+      setSuggestions(buildList(generateRealisticSuggestions(currentDisplay)));
       setShowSuggestions(true);
-      return;
+
+      // Reálne hľadanie podľa zobrazeného (maskovaného) textu — pre pozorovateľa
+      // sa vyhľadáva úplne normálne, rovnako ako pre bežného používateľa.
+      const controller = new AbortController();
+
+      const searchWikipedia = async () => {
+        try {
+          const response = await fetch(
+            `/api/wikipedia/search?q=${encodeURIComponent(currentDisplay)}`,
+            { signal: controller.signal }
+          );
+          const data = await response.json();
+          const wikiResults = (data.results || []) as {
+            title: string;
+            slug: string;
+            snippet: string;
+            wordcount: number;
+            thumbnail: string | null;
+          }[];
+
+          const realResults: SearchResult[] = wikiResults.map(r => ({
+            title: r.title,
+            slug: r.slug,
+            excerpt: r.snippet.replace(/<[^>]+>/g, ''),
+            snippetHtml: r.snippet,
+            wordcount: r.wordcount,
+            thumbnail: r.thumbnail || undefined,
+          }));
+
+          setSuggestions(buildList(realResults));
+          setShowSuggestions(true);
+        } catch (error) {
+          if ((error as Error).name !== 'AbortError') {
+            // Zostávajú záložné návrhy, ktoré sú už zobrazené
+            console.error('Covert search error:', error);
+          }
+        }
+      };
+
+      const timeoutId = setTimeout(searchWikipedia, 150);
+
+      return () => {
+        clearTimeout(timeoutId);
+        controller.abort();
+      };
     }
 
     // Normal mode — reálne výsledky zo slovenskej Wikipédie cez naše API
