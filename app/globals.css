@@ -707,3 +707,28 @@ a.new {
   border-bottom: 1px solid #a2a9b1;
   margin: 0.8em 0 0.5em;
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Výsledky hľadania — zvýraznenie hľadaného výrazu ako na Wikipédii
+   ──────────────────────────────────────────────────────────────────────── */
+
+.search-suggestion-snippet {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.35;
+}
+
+/* Žlté zvýraznenie nájdeného výrazu (MediaWiki class="searchmatch") */
+.search-suggestion-snippet .searchmatch {
+  font-weight: bold;
+  color: #202122;
+}
+
+/* Wikipedia vektorový vzhľad zvýraznenia */
+.mw-search-results .searchmatch,
+.searchmatch {
+  background: #ffee80;
+  padding: 0 1px;
+}

@@ -10,6 +10,8 @@ interface SearchResult {
   title: string;
   slug: string;
   excerpt: string;
+  snippetHtml?: string;
+  wordcount?: number;
   thumbnail?: string;
 }
 
@@ -295,83 +297,66 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       return;
     }
 
-    // Normal mode - search Wikipedia API
+    // Normal mode — reálne výsledky zo slovenskej Wikipédie cez naše API
     const controller = new AbortController();
     const term = displayValue.toLowerCase().trim();
-    
-    const localMatches = searchArticles(term);
-    
-    const searchWikipedia = async () => {
-      try {
-        const response = await fetch(
-          `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(term)}&format=json&origin=*&srlimit=8&srprop=snippet`,
-          { signal: controller.signal }
-        );
-        const data = await response.json();
-        
-        const searchResults = data.query?.search || [];
-        const titles = searchResults.map((r: { title: string }) => r.title).join('|');
-        
-        let thumbnails: Record<string, string> = {};
-        if (titles) {
-          const thumbResponse = await fetch(
-            `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=pageimages&format=json&origin=*&pithumbsize=60`,
-            { signal: controller.signal }
-          );
-          const thumbData = await thumbResponse.json();
-          const pages = thumbData.query?.pages || {};
-          Object.values(pages).forEach((page: unknown) => {
-            const p = page as { title: string; thumbnail?: { source: string } };
-            if (p.thumbnail?.source) {
-              thumbnails[p.title] = p.thumbnail.source;
-            }
-          });
-        }
-        
-        const localResults: SearchResult[] = localMatches.map(article => {
+
+    const localFallback = () => {
+      // Fallback, keď API nie je dostupné — lokálna encyklopédia
+      const results: SearchResult[] = searchArticles(term)
+        .map(article => {
           const slug = Object.entries(SLOVAK_ARTICLES).find(
             ([, a]) => a.title === article.title
           )?.[0] || article.title.toLowerCase().replace(/\s+/g, '-');
-          
-          return {
-            title: article.title,
-            slug,
-            excerpt: article.excerpt,
-          };
-        });
-        
-        const wikiResults: SearchResult[] = searchResults.map((r: { title: string; snippet: string }) => ({
+          return { title: article.title, slug, excerpt: article.excerpt };
+        })
+        .slice(0, 6);
+      setSuggestions(results);
+      setShowSuggestions(true);
+    };
+
+    const searchWikipedia = async () => {
+      try {
+        const response = await fetch(
+          `/api/wikipedia/search?q=${encodeURIComponent(term)}`,
+          { signal: controller.signal }
+        );
+        const data = await response.json();
+        const wikiResults = (data.results || []) as {
+          title: string;
+          slug: string;
+          snippet: string;
+          wordcount: number;
+          thumbnail: string | null;
+        }[];
+
+        if (wikiResults.length === 0) {
+          // Nič sa nenašlo — skúsime lokálnu encyklopédiu
+          localFallback();
+          return;
+        }
+
+        const combinedResults: SearchResult[] = wikiResults.map(r => ({
           title: r.title,
-          slug: r.title.replace(/\s+/g, '_'),
-          excerpt: r.snippet.replace(/<[^>]+>/g, '').slice(0, 100) + '...',
-          thumbnail: thumbnails[r.title],
+          slug: r.slug,
+          excerpt: r.snippet.replace(/<[^>]+>/g, ''),
+          snippetHtml: r.snippet,
+          wordcount: r.wordcount,
+          thumbnail: r.thumbnail || undefined,
         }));
-        
-        const localTitles = new Set(localResults.map(r => r.title.toLowerCase()));
-        const combinedResults = [
-          ...localResults,
-          ...wikiResults.filter(r => !localTitles.has(r.title.toLowerCase()))
-        ].slice(0, 10);
-        
+
         setSuggestions(combinedResults);
         setShowSuggestions(true);
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           console.error('Search error:', error);
-          const results: SearchResult[] = localMatches.map(article => {
-            const slug = Object.entries(SLOVAK_ARTICLES).find(
-              ([, a]) => a.title === article.title
-            )?.[0] || article.title.toLowerCase().replace(/\s+/g, '-');
-            return { title: article.title, slug, excerpt: article.excerpt };
-          }).slice(0, 6);
-          setSuggestions(results);
-          setShowSuggestions(true);
+          localFallback();
         }
       }
     };
 
     const timeoutId = setTimeout(searchWikipedia, 150);
-    
+
     return () => {
       clearTimeout(timeoutId);
       controller.abort();
@@ -547,14 +532,57 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
                 <div className="text-[16px] font-bold text-[#202122] leading-tight truncate">
                   {suggestion.title}
                 </div>
-                {suggestion.excerpt && (
+                {suggestion.snippetHtml ? (
+                  <div
+                    className="text-[14px] text-[#54595d] mt-1 leading-tight search-suggestion-snippet"
+                    dangerouslySetInnerHTML={{ __html: suggestion.snippetHtml }}
+                  />
+                ) : suggestion.excerpt ? (
                   <div className="text-[14px] text-[#54595d] mt-1 line-clamp-1 leading-tight">
                     {suggestion.excerpt}
                   </div>
-                )}
+                ) : null}
               </div>
             </button>
           ))}
+
+          {/* Spodný riadok — „Hľadať stránky obsahujúce…" ako na Wikipédii */}
+          {mode === 'normal' && displayValue.trim() && (
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                // Otvoríme prvý výsledok, prípadne priamo článok s daným názvom
+                if (suggestions.length > 0) {
+                  handleSuggestionClick(suggestions[0]);
+                } else {
+                  const term = displayValue.trim().replace(/\s+/g, '_');
+                  setDisplayValue('');
+                  setRealInput('');
+                  setSuggestions([]);
+                  setShowSuggestions(false);
+                  router.push(`/wiki/${term}`);
+                  onClose?.();
+                }
+              }}
+              className="w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 bg-[#f8f9fa]"
+              style={{
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              }}
+            >
+              <div className="w-[56px] h-[56px] flex-shrink-0 flex items-center justify-center mr-3">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#54595d" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7"/>
+                  <path d="M21 21l-4.35-4.35"/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[14px] text-[#202122] leading-tight">
+                  Hľadať stránky obsahujúce <span className="font-bold text-[#3366cc]">{displayValue.trim()}</span>
+                </div>
+              </div>
+            </button>
+          )}
         </div>
       )}
     </div>
