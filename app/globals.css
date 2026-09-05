@@ -525,3 +525,185 @@ a.new {
 ::selection {
   background: #b3d4fc;
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Presný MediaWiki (Minerva Neue / Vector) vzhľad článkov
+   ──────────────────────────────────────────────────────────────────────── */
+
+/* Sekcie h3/h4 — stĺpcové podnadpisy ako vo Wikipédii */
+.wiki-article-content h4,
+.wiki-article-content h5 {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-weight: bold;
+  margin: 0.8em 0 0.4em;
+  color: #202122;
+}
+
+/* Zoznamy — odrážky ako vo Wikipédii */
+.wiki-article-content ul,
+.wiki-article-content ol {
+  margin: 0.3em 0 0.6em 1.6em;
+}
+
+.wiki-article-content ul {
+  list-style: disc;
+}
+
+.wiki-article-content ol {
+  list-style: decimal;
+}
+
+.wiki-article-content li {
+  margin-bottom: 0.1em;
+  line-height: 1.6;
+}
+
+/* Referencie — menšie písmo, tenká horná línia */
+.wiki-article-content ol.references,
+.wiki-article-content .references,
+.wiki-article-content .reflist {
+  font-size: 0.85em;
+  color: #54595d;
+  margin-top: 0.4em;
+}
+
+.wiki-article-content h2 + .reflist,
+.wiki-article-content h2:has(+ .reflist) {
+  margin-top: 0;
+}
+
+/* Hatnote — kurzíva ako vo Wikipédii */
+.wiki-article-content .hatnote,
+.wiki-article-content .rellink,
+.wiki-article-content .dablink {
+  font-style: italic;
+  padding-left: 1.6em;
+  margin-bottom: 0.5em;
+  color: #54595d;
+}
+
+/* Skryté prvky z predlôh */
+.wiki-article-content .mw-empty-elt,
+.wiki-article-content .mw-jump-link,
+.wiki-article-content .noprint,
+.wiki-article-content .mw-editsection,
+.wiki-article-content .mw-editnotice,
+.wiki-article-content .mbox,
+.wiki-article-content .portal-bar,
+.wiki-article-content .section-spacer,
+.wiki-article-content #toc,
+.wiki-article-content .toc,
+.wiki-article-content .mw-references-columns ~ * {
+  display: none;
+}
+
+/* Obrázky — maximálna šírka na mobile, žiadne pretekanie */
+.wiki-article-content img {
+  max-width: min(100%, 300px);
+  height: auto;
+}
+
+.wiki-article-content figure,
+.wiki-article-content .mw-file-element,
+.wiki-article-content table {
+  max-width: 100%;
+}
+
+/* Infobox v mobile sa chová ako blok — celá šírka je príliš veľa,
+   ale ponecháme 45 % maximum z existujúceho pravidla vyššie */
+
+/* Tabuľky, ktoré nie sú wikitable — minimalizujeme rozsah */
+.wiki-article-content table.wikitable {
+  display: block;
+  overflow-x: auto;
+}
+
+/* Zdrojový citát */
+.wiki-article-content blockquote {
+  border-left: 3px solid #c8ccd1;
+  margin: 0.6em 0 0.8em 1em;
+  padding: 0.2em 0 0.2em 0.8em;
+  color: #54595d;
+  font-style: italic;
+}
+
+/* Vodorovné oddeľovače */
+.wiki-article-content hr {
+  border: none;
+  border-top: 1px solid #a2a9b1;
+  margin: 0.8em 0;
+}
+
+/* Galérie */
+.wiki-article-content ul.gallery,
+.wiki-article-content .gallery {
+  list-style: none;
+  margin-left: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wiki-article-content .gallerybox {
+  max-width: 140px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+   Živá Hlavná stránka (predloha „Hlavná stránka" zo sk.wikipedia.org)
+   ──────────────────────────────────────────────────────────────────────── */
+
+.wiki-mainpage-content .mw-parser-output {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Lato, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #202122;
+}
+
+.wiki-mainpage-content table {
+  display: table;
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.wiki-mainpage-content td,
+.wiki-mainpage-content th {
+  vertical-align: top;
+  padding: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Stĺpce hlavného rozloženia pod sebou na mobile */
+@media (max-width: 720px) {
+  .wiki-mainpage-content table {
+    display: block;
+  }
+
+  .wiki-mainpage-content tbody,
+  .wiki-mainpage-content tr,
+  .wiki-mainpage-content td {
+    display: block;
+    width: 100% !important;
+  }
+}
+
+/* Farebné hlavičky sekcií Hlavnej stránky (modro-šedé ako na sk.wiki) */
+.wiki-mainpage-content .MainPageBG {
+  background: #f8f9fa;
+  border: 1px solid #c8ccd1;
+}
+
+.wiki-mainpage-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.wiki-mainpage-content h2 {
+  font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
+  font-size: 1.25em;
+  font-weight: normal;
+  border-bottom: 1px solid #a2a9b1;
+  margin: 0.8em 0 0.5em;
+}

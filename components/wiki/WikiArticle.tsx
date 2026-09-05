@@ -602,16 +602,32 @@ export function WikiArticle({ slug }: WikiArticleProps) {
                 const link = target.closest('a');
                 if (link) {
                   const href = link.getAttribute('href');
-                  const linkText = link.textContent || '';
-                  
-                  // Only intercept internal wiki links (our modified ones have data-internal)
-                  if (href && (href.startsWith('/wiki/') || link.hasAttribute('data-internal'))) {
+
+                  // Preferovaná navigácia podľa href — má presný názov cieľového
+                  // článku (text odkazu sa môže líšiť, napr. skratky a varianty).
+                  const internalHref = href?.startsWith('/wiki/')
+                    ? href
+                    : href?.match(/(?:^|)https?:\/\/[^/]*wikipedia\.org\/wiki\/([^#?]+)/)
+                      ? `/wiki/${(href.match(/https?:\/\/[^/]*wikipedia\.org\/wiki\/([^#?]+)/) as RegExpMatchArray)[1]}`
+                      : null;
+
+                  if (internalHref) {
                     e.preventDefault();
                     e.stopPropagation();
-                    handleNormalLinkClick(e as unknown as React.MouseEvent<HTMLAnchorElement>, linkText);
+                    const slug = decodeURIComponent(internalHref.replace(/^\/wiki\//, ''));
+                    if (slug) {
+                      // Aktivuj force aj pri kliku na odkaz v reálnom článku
+                      if (config.forceName && !config.isForceActive) {
+                        activateForce();
+                      }
+                      router.push(`/wiki/${encodeURIComponent(slug)}`);
+                    }
+                    return;
                   }
-                  // Block external Wikipedia links
-                  else if (href && href.includes('wikipedia.org')) {
+
+                  const linkText = link.textContent || '';
+                  // Ostatné odkazy (napr. externé) — použijeme text odkazu
+                  if (href && href.includes('wikipedia.org')) {
                     e.preventDefault();
                     e.stopPropagation();
                     handleNormalLinkClick(e as unknown as React.MouseEvent<HTMLAnchorElement>, linkText);

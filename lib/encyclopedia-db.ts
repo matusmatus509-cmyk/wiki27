@@ -2,6 +2,8 @@
 // Cieľ: aby slová v článkoch dávali zmysel v kontexte (napr. v článku o gitare
 // sa objavia pojmy z hudby, nie "Oceán")
 
+import { VOCABULARY_EXPANSION } from './vocabulary-expansion';
+
 export type ArticleCategory =
   | 'sport'
   | 'science'
@@ -146,8 +148,8 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     'Pianissimo', 'Pizzicato', 'Polyfonický', 'Polyrytmia', 'Portamento',
     'Prestissimo', 'Rallentando', 'Recitál', 'Retardácia', 'Ripieno',
     'Ritardando', 'Rubato', 'Scherzo', 'Sforzando', 'Spev', 'Staccato',
-    'Subdominanta', 'Synkopa', 'Temperácia', 'Tesitúra', 'Toccata',
-    'Tonika', 'Transpozícia', 'Trilok', 'Tutti', 'Unisonó', 'Vokál',
+    'Subdominanta', 'Synkopa', 'Temperácia', 'Tessitúra', 'Toccata',
+    'Tonika', 'Transpozícia', 'Trilógia', 'Tutti', 'Unisono', 'Vokál',
     // Hudobné štýly
     'Blues', 'Bossa nova', 'Country', 'Disco', 'Elektronika', 'Flamenco',
     'Folklór', 'Funk', 'Gospel', 'Hip hop', 'Klasika', 'Latino', 'Metal',
@@ -182,21 +184,21 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     'Vystúpenie', 'Výstava', 'Zbierka', 'Zborník',
     // Rozšírené výtvarné umenie
     'Abstrakcionizmus', 'Action painting', 'Art brut', 'Art deco', 'Art nouveau',
-    'Azulejo', 'Batik', 'Biedermeier', 'Body art', 'Bronz', 'Bústa',
-    'Caravaggiozmus', 'Collage', 'Concept art', 'Dadaizmus', 'Dekadencia',
+    'Azulejo', 'Batik', 'Biedermeier', 'Body art', 'Bronz', 'Busta',
+    'Caravaggizmus', 'Collage', 'Concept art', 'Dadaizmus', 'Dekadencia',
     'Difuzionizmus', 'Dripping', 'Dyptich', 'Email', 'Encaustika', 'Expresionizmus',
     'Fauvizmus', 'Figurálna maľba', 'Fotorealizmus', 'Freska', 'Futurizmus',
     'Gesto', 'Glazúra', 'Graffiti', 'Grisaille', 'Guaš', 'Happening',
     'Hyperrealizmus', 'Ikona', 'Iluminácia', 'Impasto', 'Informel',
     'Inštalácia', 'Intarzia', 'Interiérový dizajn', 'Jugendstil', 'Kaligrafia',
     'Kamej', 'Keramika', 'Kinetické umenie', 'Koláž', 'Konceptuálne umenie',
-    'Land art', 'Litografia', 'Luminizmus', 'Maniera', 'Manierismus',
+    'Land art', 'Litografia', 'Luminizmus', 'Maniera', 'Manierizmus',
     'Majolik', 'Miniatura', 'Minimalizmus', 'Mobil', 'Modelovanie', 'Monochróm',
-    'Monumentálne umenie', 'Mozaika', 'Muralista', 'Naivné umenie', 'Naturalismus',
+    'Monumentálne umenie', 'Mozaika', 'Muralista', 'Naivné umenie', 'Naturalizmus',
     'Návrh', 'Nekonformizmus', 'Neobarok', 'Neoklasicizmus', 'Neonaturalizmus',
     'Neoromantizmus', 'Objektové umenie', 'Op art', 'Ornament', 'Paneláž',
     'Pastel', 'Performance', 'Perspektíva', 'Pointilizmus', 'Pop art',
-    'Porcelán', 'Postimpresionizmus', 'Postmodernizmus', 'Predela', 'Predrafeliti',
+    'Porcelán', 'Postimpresionizmus', 'Postmodernizmus', 'Predela', 'Prerafaelité',
     'Primitívizmus', 'Rámovanie', 'Ready-made', 'Reliéf', 'Retušovanie',
     'Rokoko', 'Romantická škola', 'Rustikálny štýl', 'Secesia', 'Serigrafia',
     'Silueta', 'Site-specific', 'Skalnatý relief', 'Skica', 'Sochárstvo',
@@ -211,11 +213,11 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     'Herecká škola', 'Hlas', 'Hollywood', 'Horor', 'Improvizačné divadlo',
     'Inscenátor', 'Interaktívne divadlo', 'Javisko', 'Kinematografia',
     'Klauniáda', 'Klip', 'Komediálny žáner', 'Komédia dell arte', 'Krátkometrážny film',
-    'Kulisy', 'Loutkové divadlo', 'Melodráma', 'Mimika', 'Monodráma',
+    'Kulisy', 'Marianske divadlo', 'Melodráma', 'Mimika', 'Monodráma',
     'Monológ', 'Moralizujúca hra', 'Mušle', 'Muzikál', 'Mystéria',
     'Narátor', 'Návrh kostýmu', 'Noir', 'Opona', 'Osvetlenie',
     'Pásmo', 'Postava', 'Predfilm', 'Premiéra filmu', 'Produkcia',
-    'Projekcia', 'Prorokačná hra', 'Psychologická dráma', 'Recenzia filmu',
+    'Projekcia', 'Prorocká hra', 'Psychologická dráma', 'Recenzia filmu',
     'Repertoár', 'Repríza', 'Road movie', 'Romantická komédia', 'Satira',
     'Sci-fi', 'Seriál', 'Sitkom', 'Skica', 'Slapstick', 'Strihač',
     'Šou', 'Telenovela', 'Thriller', 'Titulky', 'Trailer', 'Trúchlohra',
@@ -1286,6 +1288,16 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
   ],
 };
 
+// Rozšírenie slovnej zásoby — nové pojmy + doplnenie zriedkavých písmen (q, x,
+// w, ä, ó, ô, ť, ď, ľ, ŕ, ň, ý) na pozíciách 1–6, aby force trik fungoval
+// aj pri neobvyklých menách. Duplicity ošetri index (buildIndex).
+for (const [cat, words] of Object.entries(VOCABULARY_EXPANSION) as [
+  ArticleCategory,
+  string[],
+][]) {
+  VOCABULARY_BY_CATEGORY[cat].push(...words);
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // PRÍBUZNÉ KATEGÓRIE — ak v hlavnej kategórii nie je dosť slov,
 // uprednostnia sa slová z týchto príbuzných kategórií pred fallbackom
@@ -1395,6 +1407,30 @@ export function getForceWordsForLetter(
     for (const cat of Object.keys(CATEGORY_INDEX) as ArticleCategory[]) {
       if (result.length >= count) break;
       pickFrom(cat);
+    }
+  }
+
+  // 5) Núdzový fallback — niektoré kombinácie písmeno × pozícia (napr. "á" na
+  // 1. pozícii alebo "q" v strede slova) sa v slovenčine nevyskytujú. Aby force
+  // trik nikdy neskončil bez odkazov, vrátime slová obsahujúce písmeno hocikde.
+  if (result.length === 0) {
+    for (const cat of Object.keys(CATEGORY_INDEX) as ArticleCategory[]) {
+      const byLetter = CATEGORY_INDEX[cat]?.[target] || {};
+      const positions = Object.keys(byLetter)
+        .map(Number)
+        .sort((a, b) => a - b);
+      for (const pos of positions) {
+        for (const w of byLetter[pos] || []) {
+          const key = w.toLowerCase();
+          if (!seen.has(key)) {
+            result.push(w);
+            seen.add(key);
+          }
+          if (result.length >= count) break;
+        }
+        if (result.length >= count) break;
+      }
+      if (result.length >= count) break;
     }
   }
 
