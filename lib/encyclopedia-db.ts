@@ -2,7 +2,10 @@
 // Cieľ: aby slová v článkoch dávali zmysel v kontexte (napr. v článku o gitare
 // sa objavia pojmy z hudby, nie "Oceán")
 
-import { VOCABULARY_EXPANSION } from './vocabulary-expansion';
+import {
+  VOCABULARY_EXPANSION,
+  VOCABULARY_EXPANSION_2,
+} from './vocabulary-expansion';
 
 export type ArticleCategory =
   | 'sport'
@@ -628,14 +631,14 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     // Rozšírené regióny
     'Apeniny', 'Arabský polostrov', 'Atika', 'Bavorsko', 'Bengálsko',
     'Benelux', 'Borneo', 'Bretónsko', 'Britské ostrovy', 'Burgenland',
-    'Byzantium', 'Čiernohorský region', 'Dalmatia', 'Dalmácia', 'Dolné Rakúsko',
-    'Dolný Sliezsko', 'Dordogne', 'Durínsko', 'Elzas', 'Flámsko',
+    'Byzantium', 'Čiernohorský region',  'Dalmácia', 'Dolné Rakúsko',
+    'Dolné Sliezsko', 'Dordogne', 'Durínsko', 'Elzas', 'Flámsko',
     'Frízsko', 'Galícia', 'Grónsko', 'Havaj', 'Hesensko', 'Horné Rakúsko',
     'Ibéria', 'Indočína', 'Jadrán', 'Juhozápadná Ázia', 'Jutsko',
     'Kalábria', 'Katalánsko', 'Kaukaz', 'Kodaňský región', 'Korutánsko',
     'Kosovo', 'Kraňsko', 'Krym', 'Kurily', 'Laponsko', 'Latínska Amerika',
     'Lotrínsko', 'Lombardia', 'Macedónia', 'Magnesia', 'Malá Ázia',
-    'Mezopotámia', 'Molise', 'Morava', 'Moskovská oblasť', 'Normandia',
+    'Mezopotámia', 'Molise', 'Morava', 'Moskovská oblasť', 'Normandie',
     'Nový Zéland', 'Núbia', 'Okinawa', 'Palestína', 'Piemonte', 'Pomerania',
     'Provence', 'Prusko', 'Rýnsko', 'Sasko', 'Sicília', 'Sliezsko',
     'Stredomorie', 'Stredná Amerika', 'Stredná Ázia', 'Stredná Európa',
@@ -692,7 +695,7 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     'Bangkok', 'Bejrút', 'Belém', 'Bern', 'Birmingham', 'Bogotá',
     'Bologna', 'Boston', 'Brasília', 'Brisbane', 'Buenos Aires', 'Bukurešť',
     'Calgary', 'Caracas', 'Cardiff', 'Casablanca', 'Čennai', 'Chicago',
-    'Colombo', 'Dakar', 'Dallas', 'Denver', 'Detroid', 'Dubaj',
+    'Colombo', 'Dakar', 'Dallas', 'Denver', 'Detroit', 'Dubaj',
     'Düsseldorf', 'Edinburgh', 'Edmonton', 'Florencia', 'Fukuoka', 'Gdaňsk',
     'Ženeva', 'Göteborg', 'Guangzhou', 'Guatemala City', 'Haifa', 'Halifax',
     'Hanoi', 'Havana', 'Hirošima', 'Ho Či Minovo Mesto', 'Hongkong', 'Houston',
@@ -708,7 +711,7 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     'Portland', 'Porto', 'Poznaň', 'Puebla', 'Quebec', 'Quito',
     'Rabat', 'Recife', 'Reykjavík', 'Rio de Janeiro', 'Rotterdam', 'Salvador',
     'San Diego', 'San Francisco', 'San Juan', 'Santiago', 'Santo Domingo',
-    'São Paulo', 'Sarajevo', 'Seattle', 'Seville', 'Soul', 'Štrasburg',
+    'São Paulo', 'Sarajevo', 'Seattle', 'Sevilla', 'Soul', 'Štrasburg',
     'Stuttgart', 'Surabaja', 'Tchaj-pej', 'Teherán', 'Tel Aviv', 'Thessaloniki',
     'Tijuana', 'Toulouse', 'Tripolis', 'Tunis', 'Turín', 'Valencia',
     'Vancouver', 'Veracruz', 'Vladivostok', 'Volgograd', 'Washington',
@@ -749,9 +752,9 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
     'Čierne more', 'Colorado', 'Danube Delta', 'Dardanely', 'Dead Sea', 'Etna',
     'Eufrat', 'Faerské ostrovy', 'Fujisan', 'Galapágy', 'Gibraltár', 'Gobi',
     'Grand Canyon', 'Great Barrier Reef', 'Grónske more', 'Havajské ostrovy',
-    'Helgoland', 'Hindu Kush', 'Horný Sliezsko', 'Hudson', 'Indický oceán',
+    'Helgoland', 'Hindu Kush', 'Horné Sliezsko', 'Hudson', 'Indický oceán',
     'Iguaçu', 'Irtyš', 'Java', 'Jungfrau', 'K2', 'Kanárske ostrovy',
-    'Kaspické more', 'Kavkaz', 'Kenya', 'Kilauea', 'Kolorado', 'Kongo rieka',
+    'Kaspické more', 'Kavkaz', 'Kenya', 'Kilauea', 'Kolorado', 'Kongo',
     'Krakatoa', 'Krím', 'Ladožské jazero', 'Lago di Garda', 'Lake Michigan',
     'Lake Superior', 'Lake Victoria', 'Loire', 'Mackenzie', 'Madeira',
     'Malorka', 'Maldive', 'Maňa', 'Mariana Trench', 'Matterhorn', 'Mauna Kea',
@@ -1292,6 +1295,14 @@ const VOCABULARY_BY_CATEGORY: Record<ArticleCategory, string[]> = {
 // w, ä, ó, ô, ť, ď, ľ, ŕ, ň, ý) na pozíciách 1–6, aby force trik fungoval
 // aj pri neobvyklých menách. Duplicity ošetri index (buildIndex).
 for (const [cat, words] of Object.entries(VOCABULARY_EXPANSION) as [
+  ArticleCategory,
+  string[],
+][]) {
+  VOCABULARY_BY_CATEGORY[cat].push(...words);
+}
+
+// Druhá vlna — ďalšie tematické pojmy podľa kategórií
+for (const [cat, words] of Object.entries(VOCABULARY_EXPANSION_2) as [
   ArticleCategory,
   string[],
 ][]) {
@@ -2281,12 +2292,22 @@ const PROPER_NOUNS = new Set([
   'himaláje', 'alpy', 'karpaty', 'tatry', 'tatra', 'ural', 'andy', 'pyreneje',
   'tichý oceán', 'atlantik', 'kaspické more', 'baltské more', 'jadran', 'everest',
   'kilimandžáro', 'balaton', 'rajn',
-]);
+
+  // Geografické názvy — automatické doplnenie (krajiny, regióny, mestá,
+  // rieky a pohoria si ponechávajú veľké písmeno aj v strede vety)
+  'balkán', 'karibik', 'patagónia', 'polynézia', 'sibír', 'škandinávia', 'apeniny', 'arabský polostrov', 'atika', 'bavorsko', 'bengálsko', 'benelux', 'borneo', 'bretónsko', 'britské ostrovy', 'burgenland', 'byzantium', 'čiernohorský region', 'dalmácia', 'dordogne', 'durínsko', 'elzas', 'flámsko', 'frízsko', 'galícia', 'grónsko', 'havaj', 'hesensko', 'ibéria', 'indočína', 'jadrán', 'jutsko', 'kalábria', 'katalánsko', 'kaukaz', 'kodaňský región', 'korutánsko', 'kosovo', 'kraňsko', 'krym', 'kurily', 'laponsko', 'lotrínsko', 'lombardia', 'macedónia', 'magnesia', 'mezopotámia', 'molise', 'morava', 'moskovská oblasť', 'normandie', 'núbia', 'okinawa', 'palestína', 'piemonte', 'pomerania', 'provence', 'prusko', 'rýnsko', 'sasko', 'sicília', 'sliezsko', 'stredomorie', 'švábsko', 'tirolsko', 'toskánsko', 'transylvánia', 'turkestan', 'umbria', 'valónia', 'veneto', 'viedenský les', 'vojvodina', 'wales', 'záporožie', 'bielorusko', 'bolívia', 'etiópia', 'gruzínsko', 'kambodža', 'katar', 'kazachstan', 'keňa', 'monako', 'mongolsko', 'nepál', 'nigéria', 'pakistan', 'sudán', 'tunisko', 'uruguay', 'vatikán', 'venezuela', 'afganistan', 'alžírsko', 'andorra', 'angola', 'arménsko', 'azerbajdžan', 'bahamy', 'bahrajn', 'bangladéš', 'barbados', 'belize', 'benin', 'bhután', 'botswana', 'brunei', 'burundi', 'čad', 'dominika', 'dominikánska republika', 'džibutsko', 'ekvádor', 'eritrea', 'fidži', 'gabun', 'gambia', 'ghana', 'grenada', 'guatemala', 'guinea', 'guyana', 'haiti', 'honduras', 'jamajka', 'jemen', 'kapverdy', 'kamerun', 'kirgizsko', 'kiribati', 'komory', 'kongo', 'kostarika', 'kuvajt', 'laos', 'lesotho', 'libéria', 'líbya', 'lichtenštajnsko', 'madagaskar', 'malawi', 'maldivy', 'mali', 'marshallove ostrovy', 'maurícius', 'mauritánia', 'mikronézia', 'moldavsko', 'mozambik', 'mjanmarsko', 'namíbia', 'nauru', 'nikaragua', 'niger', 'omán', 'palau', 'panama', 'paraguay', 'rwanda', 'salvador', 'samoa', 'senegal', 'seychely', 'somálsko', 'stredoafrická republika', 'surinam', 'svazijsko', 'tadžikistan', 'tanzánia', 'togo', 'tonga', 'turkménsko', 'tuvalu', 'uganda', 'uzbekistan', 'vanuatu', 'zambia', 'zimbabwe', 'bagdad', 'bombaj', 'bukurešť', 'damask', 'frankfurt', 'hamburg', 'krakov', 'manila', 'neapol', 'ottawa', 'riga', 'sofia', 'sydney', 'tallinn', 'tirana', 'toronto', 'vilnius', 'záhreb', 'adelaide', 'akra', 'alžír', 'ammán', 'antverpy', 'astana', 'auckland', 'austin', 'baku', 'baltimore', 'bangalúr', 'bangkok', 'bejrút', 'belém', 'bern', 'birmingham', 'bogotá', 'bologna', 'boston', 'brasília', 'brisbane', 'bukurešť', 'calgary', 'caracas', 'cardiff', 'casablanca', 'čennai', 'chicago', 'colombo', 'dakar', 'dallas', 'denver', 'detroit', 'dubaj', 'düsseldorf', 'edinburgh', 'edmonton', 'florencia', 'fukuoka', 'gdaňsk', 'ženeva', 'göteborg', 'guangzhou', 'haifa', 'halifax', 'hanoi', 'havana', 'hirošima', 'hongkong', 'houston', 'charkov', 'christchurch', 'innsbruck', 'islamabad', 'izmir', 'jakarta', 'jerevan', 'johannesburg', 'kalkata', 'karáči', 'kathmandu', 'kijov', 'kinshasa', 'kyoto', 'lagos', 'lahore', 'leeds', 'leipzig', 'lima', 'liverpool', 'lübeck', 'lyon', 'malmö', 'manchester', 'marseille', 'mekka', 'melbourne', 'memphis', 'miami', 'milwaukee', 'minneapolis', 'minsk', 'montevideo', 'montpellier', 'montreal', 'mumbai', 'nagoja', 'nairobi', 'nantes', 'nice', 'novosibirsk', 'ósaka', 'perth', 'philadelphia', 'phoenix', 'pittsburgh', 'portland', 'porto', 'poznaň', 'puebla', 'quebec', 'quito', 'rabat', 'recife', 'reykjavík', 'rotterdam', 'salvador', 'santiago', 'sarajevo', 'seattle', 'sevilla', 'soul', 'štrasburg', 'stuttgart', 'surabaja', 'tchaj-pej', 'teherán', 'thessaloniki', 'tijuana', 'toulouse', 'tripolis', 'tunis', 'turín', 'valencia', 'vancouver', 'veracruz', 'vladivostok', 'volgograd', 'washington', 'wellington', 'wroclaw', 'zagreb', 'zürich', 'duna', 'gejzír', 'aconcagua', 'amazonka', 'anapurna', 'azorské ostrovy', 'baikal', 'bajkálske jazero', 'barentsovo more', 'bosporský prieliv', 'čierny les', 'čierne more', 'colorado', 'dardanely', 'etna', 'eufrat', 'faerské ostrovy', 'fujisan', 'galapágy', 'gibraltár', 'gobi', 'grónske more', 'havajské ostrovy', 'helgoland', 'hudson', 'indický oceán', 'iguaçu', 'irtyš', 'java', 'jungfrau', 'k2', 'kanárske ostrovy', 'kavkaz', 'kenya', 'kilauea', 'kolorado', 'kongo', 'krakatoa', 'krím', 'ladožské jazero', 'loire', 'mackenzie', 'madeira', 'malorka', 'maldive', 'maňa', 'matterhorn', 'mekong', 'murray', 'namib', 'niagarské vodopády', 'níger', 'nílska delta', 'ob', 'orinoco', 'panamský prieplav', 'patagonský ľadovec', 'perzský záliv', 'popocatépetl', 'rhône', 'rysy', 'seina', 'severnomorský prieliv', 'severný pól', 'sinai', 'stredozemné more', 'suezský prieplav', 'sumatra', 'sundské ostrovy', 'tanganika', 'tiber', 'tibetská náhorná plošina', 'tigris', 'transandinská cesta', 'tunguzka', 'veľké jazerá', 'veľké soľné jazero', 'vesuvius', 'vihorlat', 'yukon', 'zambezi', 'zelený mys', 'zemplín',
+  
+  // Slovenské regióny z rozširujúcich zoznamov
+  'ponitrie', 'pohronie', 'záhorie', 'považie', 'liptov', 'spiš', 'gemer', 'turiec', 'kysuce', 'orava', 'zemplín', 'tekov', 'hont', 'novohrad', 'horehronie', 'zambezi', 'ubangi', 'okavango', 'ťan-šan',
+  ]);
 
 function makeForceLink(word: string): string {
   const lowerWord = word.toLowerCase();
-  // Vlastné mená si ponechávajú veľké písmeno
-  const isProper = PROPER_NOUNS.has(lowerWord);
+  // Vlastné mená si ponechávajú veľké písmeno — rozpoznáme ich buď zo zoznamu,
+  // alebo podľa vnútorného veľkého písmena (viacslovné názvy ako „Veľká Fatra"
+  // či „Dolné Rakúsko" by inak degradovali na „veľká fatra").
+  const hasInnerCapital = word.slice(1) !== word.slice(1).toLowerCase();
+  const isProper = PROPER_NOUNS.has(lowerWord) || hasInnerCapital;
   const displayWord = isProper ? word : lowerWord;
   return `<a href="/wiki/${encodeURIComponent(
     lowerWord.replace(/\s+/g, '_'),
@@ -2427,25 +2448,264 @@ const CLOSING_SENTENCES: string[] = [
   'Spojitosti medzi nimi predstavujú zaujímavý predmet ďalších úvah.',
 ];
 
+// ────────────────────────────────────────────────────────────────────────────
+// DOPLNKOVÉ ŠABLÓNY — viažu force slová priamo na tému článku ({TITLE}),
+// vďaka čomu sa odkazy zmienia v prirodzenom kontexte a článok pôsobí
+// ako reálna encyklopedická práca, nie ako strojovo vsunuté zoznamy.
+// ────────────────────────────────────────────────────────────────────────────
+
+const EXTRA_SINGLE_TEMPLATES: Record<ArticleCategory, string[]> = {
+  culture: [
+    'V rámci témy {TITLE} zohráva {WORD} nezastupiteľnú úlohu.',
+    'Pri štúdiu témy {TITLE} nemožno obísť ani {WORD}.',
+    'Dejiny témy {TITLE} sú úzko späté s {WORD}.',
+    'K pochopeniu témy {TITLE} patrí aj poznanie {WORD}.',
+    'Aj {WORD} má v tejto oblasti svoje osobitné miesto.',
+    'Odborná literatúra o {TITLE} spomína rovnako {WORD}.',
+    'Ako ukazuje prax, aj {WORD} formovala verejný vkus.',
+    'Nezaobídeme sa bez pojmu {WORD}, ktorý stojí blízko témy {TITLE}.',
+  ],
+  sport: [
+    'Pri {TITLE} zohráva {WORD} dôležitú úlohu.',
+    'K úspechu v {TITLE} patrí aj zvládnutie {WORD}.',
+    'Tréningový plán pri {TITLE} počíta aj s {WORD}.',
+    'Aj {WORD} patrí k pilierom tejto disciplíny.',
+    'V súvislosti s {TITLE} sa často hovorí o {WORD}.',
+    'Pre vrcholový výkon v {TITLE} je podstatná aj {WORD}.',
+    'Kariéra v {TITLE} sa nezaobíde bez {WORD}.',
+    'Medzi základy témy {TITLE} patrí aj {WORD}.',
+  ],
+  science: [
+    'Výskum témy {TITLE} sa opiera aj o poznatky o {WORD}.',
+    'Pri skúmaní témy {TITLE} sa vychádza aj z {WORD}.',
+    'Teória témy {TITLE} úzko súvisí s {WORD}.',
+    'Aj {WORD} nachádza uplatnenie v tejto vedeckej oblasti.',
+    'Moderné poňatie témy {TITLE} zahŕňa aj {WORD}.',
+    'V súvislosti s {TITLE} odborníci analyzujú aj {WORD}.',
+    'Metodológia témy {TITLE} sa aplikuje aj na {WORD}.',
+    'Bez poznatkov o {WORD} by zostalo štúdium témy {TITLE} neúplné.',
+  ],
+  history: [
+    'V dejinách sa s témou {TITLE} spája aj {WORD}.',
+    'Kontext témy {TITLE} sa nedá oddeliť od {WORD}.',
+    'Aj {WORD} zanechala stopy v období {TITLE}.',
+    'Pramene k téme {TITLE} pripomínajú úlohu {WORD}.',
+    'Historici spájajú tému {TITLE} s významom {WORD}.',
+    'V dobe {TITLE} nadobúdal pojem {WORD} osobitý význam.',
+    'Osudy {WORD} sa pretínajú s {TITLE}.',
+    'Pochopenie témy {TITLE} si vyžaduje poznať aj {WORD}.',
+  ],
+  geography: [
+    'V oblasti {TITLE} majú významné miesto aj {WORD}.',
+    'Geografia témy {TITLE} zahŕňa aj {WORD}.',
+    'Charakter témy {TITLE} ovplyvňuje najmä {WORD}.',
+    'Aj {WORD} patrí k typickým črtám tohto územia.',
+    'Pri opise {TITLE} nemožno vynechať {WORD}.',
+    'Krajinný obraz témy {TITLE} dotvára najmä {WORD}.',
+    'Vývoj témy {TITLE} bol podmienený aj {WORD}.',
+    'Návštevníkov tejto oblasti upútajú aj {WORD}.',
+  ],
+  person: [
+    'V živote tejto osobnosti má miesto aj {WORD}.',
+    'Jej cesta viedla okrem iného aj cez {WORD}.',
+    'Odborníci ju spájajú aj s {WORD}.',
+    'Aj {WORD} patrí k míľnikom jej kariéry.',
+    'Vzdelanie získala v oblasti {WORD}.',
+    'Za významné sa považuje aj obdobie {WORD}.',
+    'Verejnosti je známa aj vďaka {WORD}.',
+    'K jej odkazu patria aj {WORD}.',
+  ],
+  technology: [
+    'Pri {TITLE} sa uplatňuje aj {WORD}.',
+    'Vývoj témy {TITLE} by nebol možný bez {WORD}.',
+    'Aj {WORD} patrí k technickým základom tejto oblasti.',
+    'Prax témy {TITLE} úzko nadväzuje na {WORD}.',
+    'Inovácie v {TITLE} prinášajú aj {WORD}.',
+    'V štruktúre témy {TITLE} má {WORD} kľúčovú funkciu.',
+    'Moderný prístup k téme {TITLE} počíta aj s {WORD}.',
+    'Bez {WORD} by dnešná podoba témy {TITLE} nebola mysliteľná.',
+  ],
+  nature: [
+    'V ekosystéme témy {TITLE} zohráva {WORD} dôležitú rolu.',
+    'Výskyt {WORD} je typický pre prostredie témy {TITLE}.',
+    'Aj {WORD} patrí k charakteristickým zástupcom tejto oblasti.',
+    'Podmienky {TITLE} umožňujú život {WORD}.',
+    'Význam témy {TITLE} sa prejavuje aj v ochrane {WORD}.',
+    'K biologickému bohatstvu {TITLE} patria aj {WORD}.',
+    'V prírodných podmienkach {TITLE} sa darí aj {WORD}.',
+    'Pozorovatelia tu môžu spozorovať aj {WORD}.',
+  ],
+  general: [
+    'V súvislosti s témou {TITLE} sa hovorí aj o {WORD}.',
+    'Kontext témy {TITLE} dopĺňa aj {WORD}.',
+    'Aj {WORD} má v tejto téme svoje miesto.',
+    'Pri {TITLE} nemožno opomenúť {WORD}.',
+    'Odborné texty o téme {TITLE} spomínajú rovnako {WORD}.',
+    'K celkovému obrazu témy {TITLE} patrí aj {WORD}.',
+    'Význam témy {TITLE} dokresľuje aj {WORD}.',
+    'Bez znalosti {WORD} by výklad témy {TITLE} nebol úplný.',
+  ],
+};
+
+const EXTRA_LIST_TEMPLATES: Record<ArticleCategory, string[]> = {
+  culture: [
+    'Svet témy {TITLE} obohatili najmä {W1}, {W2} a {W3}.',
+    'K klasike témy {TITLE} patria {W1}, {W2} či {W3}.',
+    'Pamäť tejto oblasti si uchovala mená ako {W1}, {W2} a {W3}.',
+    'Pojmový rámec témy {TITLE} tvoria aj aj {W1}, {W2} alebo {W3}.',
+  ],
+  sport: [
+    'História témy {TITLE} pozná aj {W1}, {W2} či {W3}.',
+    'K chrbtovej kosti témy {TITLE} patria {W1}, {W2} a {W3}.',
+    'Súčasťou prostredia témy {TITLE} sú {W1}, {W2} aj {W3}.',
+    'Na vrcholovej úrovni {TITLE} rozhodujú najmä {W1}, {W2} a {W3}.',
+  ],
+  science: [
+    'Teóriu témy {TITLE} dopĺňajú pojmy ako {W1}, {W2} a {W3}.',
+    'Medzi základné stavebné kamene témy {TITLE} patria {W1}, {W2} či {W3}.',
+    'Výskum témy {TITLE} sa opiera o {W1}, {W2} aj {W3}.',
+    'Praktické uplatnenie nachádzajú najmä {W1}, {W2} a {W3}.',
+  ],
+  history: [
+    'Dejiny témy {TITLE} formovali udalosti ako {W1}, {W2} a {W3}.',
+    'Pramene k {TITLE} spomínajú {W1}, {W2} či {W3}.',
+    'K dejinám témy {TITLE} neoddeliteľne patria {W1}, {W2} aj {W3}.',
+    'V čase {TITLE} nadobudli význam {W1}, {W2} a {W3}.',
+  ],
+  geography: [
+    'Krajinný rámec témy {TITLE} tvoria okrem iného {W1}, {W2} a {W3}.',
+    'K prírodným hodnotám témy {TITLE} patria {W1}, {W2} či {W3}.',
+    'Územie spojené s témou {TITLE} vyniká najmä {W1}, {W2} aj {W3}.',
+    'Medzi pozoruhodnosti témy {TITLE} patria {W1}, {W2} a {W3}.',
+  ],
+  person: [
+    'Osobnostný profil dopĺňajú súvislosti ako {W1}, {W2} a {W3}.',
+    'Kľúčovými etapami boli {W1}, {W2} či {W3}.',
+    'Dielo či činy sprevádzali aj {W1}, {W2} a {W3}.',
+    'Životnú cestu ovplyvnili najmä {W1}, {W2} aj {W3}.',
+  ],
+  technology: [
+    'Architektúru témy {TITLE} tvoria okrem iného {W1}, {W2} a {W3}.',
+    'Medzi technické predpoklady témy {TITLE} patria {W1}, {W2} či {W3}.',
+    'V praxi sa využívajú najmä {W1}, {W2} aj {W3}.',
+    'Rozvoj témy {TITLE} umožnili predovšetkým {W1}, {W2} a {W3}.',
+  ],
+  nature: [
+    'V prírode témy {TITLE} sa stretávame s {W1}, {W2} aj {W3}.',
+    'K typickým zástupcom patria {W1}, {W2} či {W3}.',
+    'Biodiverzitu témy {TITLE} dotvárajú {W1}, {W2} a {W3}.',
+    'V hodnotách územia vynikajú najmä {W1}, {W2} aj {W3}.',
+  ],
+  general: [
+    'K téme {TITLE} sa viažu aj pojmy {W1}, {W2} a {W3}.',
+    'Okrem toho zohrávajú úlohu {W1}, {W2} či {W3}.',
+    'Medzi súvisiace okruhy patria {W1}, {W2} aj {W3}.',
+    'V širších súvislostiach vystupujú aj {W1}, {W2} a {W3}.',
+  ],
+};
+
+const EXTRA_CONTEXT_SENTENCES: Record<ArticleCategory, string[]> = {
+  culture: [
+    'Pojmy uvedené nižšie tvoria prirodzený rámec tejto oblasti.',
+    'Kultúrna pamäť si tieto súvislosti uchovala dodnes.',
+    'Výklad bez nich by ostal povrchový a neúplný.',
+    'Odborná kritika venuje týmto aspektom trvalú pozornosť.',
+  ],
+  sport: [
+    'Bez uvedených súvislostí sa nedá pochopiť celkový obraz disciplíny.',
+    'Tréningová prax ich pokladá za základný rozsah.',
+    'Športová verejnosť ich vníma ako samozrejmosť.',
+    'Ich význam rastie s narastajúcou konkurenciou.',
+  ],
+  science: [
+    'Uvedené pojmy tvoria pojmový rámec tejto disciplíny.',
+    'Vedecká komunita ich pokladá za východisko ďalšieho skúmania.',
+    'Ich vzájomné vzťahy opisujú základné modely.',
+    'Bez ich definícií by teoretický aparát nebol úplný.',
+  ],
+  history: [
+    'Historická pamäť spája tieto súvislosti do jedného celku.',
+    'Pramene ich spomínajú opakovane, čo svedčí o ich význame.',
+    'Historiografia im venuje samostatné kapitoly.',
+    'Ich výklad sa opiera o porovnateľné prípady z iných období.',
+  ],
+  geography: [
+    'Geografické súvislosti ich radia medzi určujúce faktory.',
+    'Ich rozloženie zodpovedá prírodným podmienkam územia.',
+    'Priestorové vzťahy medzi nimi sú predmetom výskumu.',
+    'Krajiný obraz bez nich nemôže byť úplný.',
+  ],
+  person: [
+    'Životná dráha je v nich zobrazená v širších súvislostiach.',
+    'Biografické pramene ich spomínajú v kľúčových okamihoch.',
+    'Verejný obraz osobnosti ich neustále potvrdzuje.',
+    'Bez nich by portrét zostal jednostranný.',
+  ],
+  technology: [
+    'Technická prax ich pokladá za štandard.',
+    'Ich prepojenie určuje celkovú architektúru riešenia.',
+    'Vývojové trendy ich neustále presúvajú do popredia.',
+    'Normy a štandardy s nimi počítajú ako so základom.',
+  ],
+  nature: [
+    'Prírodovedný výskum ich pokladá za indikátor stavu prostredia.',
+    'Ich prítomnosť alebo úbytok hovorí o zdraví ekosystému.',
+    'Ochrana prírody sa viaže na ich prežitie.',
+    'Terénne pozorovania ich dokumentujú pravidelne.',
+  ],
+  general: [
+    'Uvedené súvislosti tvoria základný pojmový rámec.',
+    'Ich vzájomné vzťahy si zaslúžia bližšie vysvetlenie.',
+    'Čitateľ v nich nájde východiská pre ďalšie štúdium.',
+    'Odborná i laická diskusia sa k nim vracia pravidelne.',
+  ],
+};
+
+// Dosadí názov článku do šablón obsahujúcich {TITLE}
+const withTitle = (templates: string[], articleTitle: string): string[] =>
+  templates.map((t) => t.split('{TITLE}').join(articleTitle));
+
 export function generateForceArticleContent(
   title: string,
   category: ArticleCategory,
   forceWords: string[],
 ): string {
   const structure = ARTICLE_STRUCTURES[category] || ARTICLE_STRUCTURES.general;
-  const singleTpls = shuffle(
-    SINGLE_TEMPLATES[category] || SINGLE_TEMPLATES.general,
+  const singleTpls = withTitle(
+    shuffle([
+      ...(SINGLE_TEMPLATES[category] || SINGLE_TEMPLATES.general),
+      ...EXTRA_SINGLE_TEMPLATES[category],
+    ]),
+    title,
   );
-  const listTpls = shuffle(
-    LIST_TEMPLATES[category] || LIST_TEMPLATES.general,
+  const listTpls = withTitle(
+    shuffle([
+      ...(LIST_TEMPLATES[category] || LIST_TEMPLATES.general),
+      ...EXTRA_LIST_TEMPLATES[category],
+    ]),
+    title,
   );
-  const contextSentences = shuffle(
-    CONTEXT_SENTENCES[category] || CONTEXT_SENTENCES.general,
+  const contextSentences = withTitle(
+    shuffle([
+      ...(CONTEXT_SENTENCES[category] || CONTEXT_SENTENCES.general),
+      ...EXTRA_CONTEXT_SENTENCES[category],
+    ]),
+    title,
   );
   const closingSentences = shuffle(CLOSING_SENTENCES);
 
   let content = structure.intro(title);
-  const sections = structure.sections(title);
+  const allSections = structure.sections(title);
+  // Variabilná štruktúra: zachováme logické poradie (úvodné aj záverečné
+  // sekcie), ale stredové sekcie náhodne vynechávame — články sa tak
+  // navzájom líšia a nepôsobia šablónovito.
+  const sections = allSections.filter(
+    (_section, i) =>
+      i < 2 ||
+      i === allSections.length - 1 ||
+      allSections.length <= 4 ||
+      Math.random() < 0.8,
+  );
 
   // Spočítame počet odsekov, aby sme vedeli rozdeliť force slová rovnomerne.
   let totalParagraphs = 0;
