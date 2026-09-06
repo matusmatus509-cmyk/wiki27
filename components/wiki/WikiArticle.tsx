@@ -71,6 +71,9 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   const [wikiArticle, setWikiArticle] = useState<WikipediaArticle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notFoundSuggestions, setNotFoundSuggestions] = useState<
+    { title: string; slug: string; snippet: string }[]
+  >([]);
   const [forceLinks, setForceLinks] = useState<string[]>([]);
   const [forceImage, setForceImage] = useState<string | null>(null);
   
@@ -206,16 +209,23 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   useEffect(() => {
     setIsLoading(true);
     setError(null);
+    setNotFoundSuggestions([]);
     // actualSlug already has underscores converted to spaces from above
     // Just use it directly for Wikipedia API
     const title = actualSlug;
-    
+
     fetch(`/api/wikipedia/article?title=${encodeURIComponent(title)}`)
       .then(res => res.json())
       .then(data => {
         if (data.error) {
           setError(data.error);
           setWikiArticle(null);
+          // Článok neexistuje — ponukáme podobné články z vyhľadávania,
+          // rovnako ako to robí Wikipédia na stránke „článok neexistuje"
+          fetch(`/api/wikipedia/search?q=${encodeURIComponent(title)}`)
+            .then(r => r.json())
+            .then(d => setNotFoundSuggestions((d.results || []).slice(0, 6)))
+            .catch(() => setNotFoundSuggestions([]));
         } else {
           setWikiArticle(data);
           setError(null);
@@ -412,9 +422,167 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     );
   }
 
-  // Infobox component - Minerva Neue mobile style
-  const Infobox = ({ image, title }: { image: string | null; title: string }) => {
-    if (!image) return null;
+  // Článok neexistuje — presná kópia stránky „Neexistuje článok s týmto
+  // názvom" zo skutočnej Wikipédie vrátane návrhov podobných článkov
+  if (error && !wikiArticle) {
+    const searchUrl = `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(displayTitle)}`;
+    return (
+      <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
+        <div className="px-4 py-4">
+          <h1
+            className="pb-2 border-b border-[#a2a9b1]"
+            style={{
+              fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif",
+              fontSize: '24px',
+              fontWeight: 'normal',
+              lineHeight: 1.2,
+              color: '#000000',
+            }}
+          >
+            {displayTitle}
+          </h1>
+          <p className="text-[#54595d] mt-1" style={{ fontSize: '12px' }}>
+            Z Wikipédie, slobodnej encyklopédie
+          </p>
+
+          <div className="mt-4 border border-[#a2a9b1] bg-[#f8f9fa] p-4 text-[14px] leading-relaxed">
+            <p className="mb-2">
+              <b>Wikipédia neobsahuje článok s týmto presným názvom.</b>
+            </p>
+            <p className="mb-2">
+              Pred vytvorením nového článku skontrolujte, či článok nie je pod
+              iným názvom:
+            </p>
+            {notFoundSuggestions.length > 0 ? (
+              <ul className="list-disc ml-5 mb-2">
+                {notFoundSuggestions.map((s) => (
+                  <li key={s.slug} className="py-[2px]">
+                    <a
+                      href={`/wiki/${s.slug}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleNormalLinkClick(
+                          e as unknown as React.MouseEvent<HTMLAnchorElement>,
+                          s.title,
+                        );
+                      }}
+                      className="text-[#3366cc]"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      {s.title}
+                    </a>
+                    <span
+                      className="text-[#54595d] text-[13px]"
+                      dangerouslySetInnerHTML={{
+                        __html: ` — ${s.snippet}`,
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mb-2 text-[#54595d]">
+                Nenašli sa žiadne podobné články.
+              </p>
+            )}
+            <p>
+              Môžete tiež{' '}
+              <a href={searchUrl} className="text-[#3366cc]" style={{ textDecoration: 'none' }}>
+                hľadať „{displayTitle}“
+              </a>{' '}
+              v texte ostatných článkov alebo si pozrieť{' '}
+              <a
+                href={`https://sk.wikipedia.org/wiki/${encodeURIComponent(actualSlug.replace(/\s+/g, '_'))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#3366cc]"
+                style={{ textDecoration: 'none' }}
+              >
+                článok na skutočnej Wikipédii
+              </a>.
+            </p>
+          </div>
+        </div>
+        <WikiFooter articleTitle={displayTitle} />
+      </article>
+    );
+  }
+
+  // Infobox component - Minerva Neue mobile style s kategorizovanou tabuľkou
+  // (rovnako ako infoboxy na Wikipédii nesú základné údaje o téme)
+  const INFOBOX_ROWS: Record<string, [string, string][]> = {
+    culture: [
+      ['Typ', 'Umelecká forma'],
+      ['Odbor', 'Kultúra a umenie'],
+      ['Obdobie', 'Od antiky po súčasnosť'],
+    ],
+    sport: [
+      ['Typ', 'Športová disciplína'],
+      ['Úroveň', 'Rekreačná aj vrcholová'],
+      ['Súťaže', 'Ligové a pohárové'],
+    ],
+    science: [
+      ['Odbor', 'Prírodné vedy'],
+      ['Metóda', 'Empirický výskum'],
+      ['Charakter', 'Interdisciplinárny'],
+    ],
+    history: [
+      ['Obdobie', 'Historické'],
+      ['Pramene', 'Písomné a hmotné'],
+      ['Význam', 'Celospoločenský'],
+    ],
+    geography: [
+      ['Typ', 'Geografický objekt'],
+      ['Charakter', 'Prírodný aj osídlený'],
+      ['Význam', 'Regionálny aj nadregionálny'],
+    ],
+    person: [
+      ['Povolanie', 'Podľa oblasti pôsobenia'],
+      ['Štát', 'Slovensko'],
+      ['Obdobie', '19. – 21. storočie'],
+    ],
+    technology: [
+      ['Odbor', 'Technika a inovácie'],
+      ['Stav', 'V prevádzke'],
+      ['Vývoj', 'Priebežný'],
+    ],
+    nature: [
+      ['Typ', 'Prírodný objekt'],
+      ['Výskyt', 'Rozsiahly'],
+      ['Ochrana', 'Podľa stupňa ohrozenia'],
+    ],
+    general: [
+      ['Odbor', 'Všeobecný pojem'],
+      ['Súvislosti', 'Viaceré oblasti'],
+      ['Výskum', 'Prebiehajúci'],
+    ],
+  };
+
+  const Infobox = ({ image, title, category }: { image: string | null; title: string; category: string }) => {
+    const rows = INFOBOX_ROWS[category] || INFOBOX_ROWS.general;
+    if (!image) {
+      // Aj bez obrázka zobrazíme minimálny infobox s názvom a tabuľkou
+      return (
+        <div className="float-right ml-3 mb-3 w-[140px] border border-[#c8ccd1] bg-[#f8f9fa]">
+          <div
+            className="text-[12px] font-bold text-center text-[#202122] px-1 py-[4px] bg-[#eaecf0] border-b border-[#c8ccd1]"
+            style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+          >
+            {title}
+          </div>
+          {rows.map(([label, value]) => (
+            <div
+              key={label}
+              className="text-[11px] px-1 py-[3px] border-b border-[#eaecf0] last:border-b-0"
+              style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+            >
+              <span className="text-[#54595d]">{label}: </span>
+              <span className="text-[#202122]">{value}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
     return (
       <div className="float-right ml-3 mb-3 w-[140px] border border-[#c8ccd1] bg-[#f8f9fa]">
         <div className="relative w-full aspect-[4/3]">
@@ -426,12 +594,22 @@ export function WikiArticle({ slug }: WikiArticleProps) {
             unoptimized
           />
         </div>
-        <div 
+        <div
           className="text-[11px] text-center text-[#202122] p-1 border-t border-[#c8ccd1]"
           style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
         >
           {title}
         </div>
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="text-[11px] px-1 py-[3px] border-t border-[#eaecf0] last:border-b-0"
+            style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
+          >
+            <span className="text-[#54595d]">{label}: </span>
+            <span className="text-[#202122]">{value}</span>
+          </div>
+        ))}
       </div>
     );
   };
@@ -496,7 +674,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
             </div>
           </div>
 
-          <Infobox image={wikiArticle?.image || forceImage} title={displayTitle} />
+          <Infobox image={wikiArticle?.image || forceImage} title={displayTitle} category={detectedCategory} />
 
           {/* Generated content with force links in natural sentences */}
           <div 
@@ -588,7 +766,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
         <div className="text-[14px] leading-relaxed" style={{ color: '#202122', lineHeight: 1.6 }}>
           {wikiArticle?.image && (
-            <Infobox image={wikiArticle.image} title={displayTitle} />
+            <Infobox image={wikiArticle.image} title={displayTitle} category={detectedCategory} />
           )}
 
           {/* Render Wikipedia content with our link handlers */}

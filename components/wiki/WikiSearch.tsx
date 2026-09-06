@@ -408,23 +408,35 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const handleSearch = () => {
     const term = displayValue.trim();
     if (!term) return;
-    
-    if (suggestions.length > 0) {
+
+    // Tajný režim — Enter otvára prvý návrh (maskovací text), aby trik fungoval
+    const isCovertMode =
+      mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler';
+
+    if (isCovertMode && suggestions.length > 0) {
       handleSuggestionClick(suggestions[0]);
-    } else {
-      setDisplayValue('');
-      setRealInput('');
-      setMode('normal');
-      setCovertName('');
-      setCoverTextIndex(0);
-      setCodePosition(0);
-      setSuggestions([]);
-      setShowSuggestions(false);
-      
-      const slug = term.replace(/\s+/g, '_');
-      router.push(`/wiki/${slug}`);
-      onClose?.();
+      return;
     }
+
+    // Normálny režim — Enter vedie na stránku výsledkov vyhľadávania,
+    // presne ako „Špeciálne:Hľadanie" na skutočnej Wikipédii
+    resetSearchState();
+    router.push(
+      `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(term)}`
+    );
+    onClose?.();
+  };
+
+  // Spoločný reset vnútorného stavu vyhľadávania
+  const resetSearchState = () => {
+    setDisplayValue('');
+    setRealInput('');
+    setMode('normal');
+    setCovertName('');
+    setCoverTextIndex(0);
+    setCodePosition(0);
+    setSuggestions([]);
+    setShowSuggestions(false);
   };
 
   const handleClear = () => {
@@ -594,18 +606,11 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault();
-                // Otvoríme prvý výsledok, prípadne priamo článok s daným názvom
-                if (suggestions.length > 0) {
-                  handleSuggestionClick(suggestions[0]);
-                } else {
-                  const term = displayValue.trim().replace(/\s+/g, '_');
-                  setDisplayValue('');
-                  setRealInput('');
-                  setSuggestions([]);
-                  setShowSuggestions(false);
-                  router.push(`/wiki/${term}`);
-                  onClose?.();
-                }
+                resetSearchState();
+                router.push(
+                  `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(displayValue.trim())}`
+                );
+                onClose?.();
               }}
               className="w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 bg-[#f8f9fa]"
               style={{

@@ -18,6 +18,7 @@ function cleanSnippet(snippet: string): string {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get('q');
+  const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0);
 
   if (!query || query.length < 1) {
     return NextResponse.json({ results: [] });
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
   try {
     // Fulltextové hľadanie cez CirrusSearch — rovnaké ako „Search" na Wikipédii
     const response = await fetch(
-      `https://sk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=10&sroffset=0&srprop=snippet%7Cwordcount%7Ctimestamp&srnamespace=0`,
+      `https://sk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=10&sroffset=${offset}&srprop=snippet%7Cwordcount%7Ctimestamp&srnamespace=0`,
       { headers: WIKI_HEADERS }
     );
 
@@ -36,9 +37,10 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     const searchResults = data.query?.search || [];
+    const totalHits = data.query?.searchinfo?.totalhits ?? searchResults.length;
 
     if (searchResults.length === 0) {
-      return NextResponse.json({ results: [] });
+      return NextResponse.json({ results: [], totalHits: 0 });
     }
 
     // Náhľady obrázkov pre nájdené články (batch požiadavka)
@@ -78,7 +80,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, totalHits, offset });
   } catch (error) {
     console.error('Wikipedia search error:', error);
     return NextResponse.json({ results: [], error: 'Failed to search Wikipedia' });
