@@ -4,6 +4,24 @@ const WIKI_HEADERS = {
   'User-Agent': 'WikiForce/1.0 (educational project)',
 };
 
+
+async function fetchWikipedia(url: string, init?: RequestInit): Promise<Response> {
+  let lastResponse: Response | null = null;
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url, { ...init, next: { revalidate: 3600 } });
+      if (response.ok || response.status === 429) return response;
+      lastResponse = response;
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+  }
+  if (lastResponse) return lastResponse;
+  throw lastError instanceof Error ? lastError : new Error('Wikipedia API unavailable');
+}
+
 // Odstránime z parse HTML všetko, čo nepatrí do telo článku — šablóny,
 // navigačné boxy, správy o údržbe a ďalšie meta prvky. CSS ich síce aj tak
 // skrýva, ale server-side čistenie výrazne zníži prenášaný objem dát.
@@ -42,7 +60,7 @@ export async function GET(request: NextRequest) {
   try {
     // Parse API vracia skutočné HTML článku; redirects=1 vyrieši presmerovania
     // (napr. „Fyzika" → „Fyzika (veda)") rovnako ako to robí skutočná Wikipédia.
-    const parseResponse = await fetch(
+    const parseResponse = await fetchWikipedia(
       `https://sk.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=text|categories|links&redirects=1&disableeditsection=true&disabletoc=false`,
       {
         headers: WIKI_HEADERS,
@@ -59,7 +77,7 @@ export async function GET(request: NextRequest) {
       // Článok neexistuje — skúsime nájsť najbližší cez vyhľadávanie
       // (rovnaké správanie ako „Článok neexistuje, hľadám…" na Wikipédii)
       try {
-        const searchResponse = await fetch(
+        const searchResponse = await fetchWikipedia(
           `https://sk.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(title)}&limit=1&namespace=0&format=json`,
           { headers: WIKI_HEADERS }
         );
@@ -67,7 +85,7 @@ export async function GET(request: NextRequest) {
           const searchData = await searchResponse.json();
           const suggestion = searchData[1]?.[0];
           if (suggestion && suggestion.toLowerCase() !== title.toLowerCase()) {
-            const retryResponse = await fetch(
+            const retryResponse = await fetchWikipedia(
               `https://sk.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(suggestion)}&format=json&prop=text|categories|links&redirects=1&disableeditsection=true&disabletoc=false`,
               { headers: WIKI_HEADERS }
             );
@@ -92,7 +110,7 @@ export async function GET(request: NextRequest) {
     const parsed = parseData.parse;
 
     // Obrázok článku (pageimages) — opäť s redirectmi
-    const imageResponse = await fetch(
+    const imageResponse = await fetchWikipedia(
       `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(parsed.title)}&prop=pageimages&format=json&pithumbsize=320&redirects=1`,
       {
         headers: WIKI_HEADERS,
@@ -147,6 +165,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Wikipedia article error:', error);
-    return NextResponse.json({ error: 'Failed to fetch article' }, { status: 500 });
+    return NextResponse.json({ error: 'Wikipedia API is temporarily unavailable' }, { status: 503 });
   }
 }

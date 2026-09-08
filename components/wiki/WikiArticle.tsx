@@ -223,39 +223,54 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     fetchImage();
   }, [actualSlug]);
 
-  // ALWAYS fetch real Wikipedia article
+  // Always fetch the real article, retrying temporary upstream failures.
   useEffect(() => {
+    let cancelled = false;
     setIsLoading(true);
     setError(null);
     setNotFoundSuggestions([]);
-    // actualSlug already has underscores converted to spaces from above
-    // Just use it directly for Wikipedia API
     const title = actualSlug;
 
-    fetch(`/api/wikipedia/article?title=${encodeURIComponent(title)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.error) {
-          setError(data.error);
-          setWikiArticle(null);
-          // Článok neexistuje — ponukáme podobné články z vyhľadávania,
-          // rovnako ako to robí Wikipédia na stránke „článok neexistuje"
-          fetch(`/api/wikipedia/search?q=${encodeURIComponent(title)}`)
-            .then(r => r.json())
-            .then(d => setNotFoundSuggestions((d.results || []).slice(0, 6)))
-            .catch(() => setNotFoundSuggestions([]));
-        } else {
-          setWikiArticle(data);
-          setError(null);
-        }
-        setIsLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load article');
-        setIsLoading(false);
-      });
-  }, [actualSlug]);
+    const loadArticle = async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const response = await fetch(`/api/wikipedia/article?title=${encodeURIComponent(title)}`);
+          const data = await response.json();
+          if (cancelled) return;
 
+          if (response.status === 404) {
+            setWikiArticle(null);
+            setError('Article not found');
+            fetch(`/api/wikipedia/search?q=${encodeURIComponent(title)}`)
+              .then((result) => result.json())
+              .then((result) => !cancelled && setNotFoundSuggestions((result.results || []).slice(0, 6)))
+              .catch(() => !cancelled && setNotFoundSuggestions([]));
+            setIsLoading(false);
+            return;
+          }
+
+          if (response.ok && !data.error) {
+            setWikiArticle(data);
+            setError(null);
+            setIsLoading(false);
+            return;
+          }
+        } catch {
+          // Retry below.
+        }
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+      }
+
+      if (!cancelled) {
+        setWikiArticle(null);
+        setError('Wikipedia API unavailable');
+        setIsLoading(false);
+      }
+    };
+
+    loadArticle();
+    return () => { cancelled = true; };
+  }, [actualSlug]);
 
 
   // Generate article title - moved before any early returns to ensure consistent hook order.
@@ -440,9 +455,26 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     );
   }
 
+  // A temporary upstream error must never be described as a non-existent article.
+  if (error && error !== 'Article not found' && !wikiArticle) {
+    return (
+      <article className="bg-white min-h-screen" style={{ color: '#202122' }}>
+        <div className="px-4 py-4">
+          <h1 className="pb-2 border-b border-[#a2a9b1]" style={{ fontFamily: "'Linux Libertine', Georgia, Times, serif", fontSize: '24px', fontWeight: 'normal' }}>
+            {displayTitle}
+          </h1>
+          <div className="mt-4 border border-[#a2a9b1] bg-[#f8f9fa] p-4 text-[14px] leading-relaxed">
+            Obsah sa momentálne nepodarilo načítať zo slovenskej Wikipédie. Skúste stránku obnoviť.
+          </div>
+        </div>
+        <WikiFooter articleTitle={displayTitle} />
+      </article>
+    );
+  }
+
   // Článok neexistuje — presná kópia stránky „Neexistuje článok s týmto
   // názvom" zo skutočnej Wikipédie vrátane návrhov podobných článkov
-  if (error && !wikiArticle) {
+  if (error === 'Article not found' && !wikiArticle) {
     const searchUrl = `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(displayTitle)}`;
     return (
       <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>

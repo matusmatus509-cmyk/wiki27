@@ -207,7 +207,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
 
     const searchWikipedia = async () => {
       try {
-        const response = await fetch(`/api/wikipedia/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        const response = await fetch(`/api/wikipedia/search?suggest=1&q=${encodeURIComponent(term)}`, { signal: controller.signal });
         if (!response.ok) throw new Error('Wikipedia search failed');
         const data = await response.json();
         const realResults: SearchResult[] = (data.results || []).map((result: { title: string; slug: string; snippet: string; wordcount: number; thumbnail: string | null }) => ({
@@ -248,24 +248,43 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
     };
   }, [displayValue, config.showFeedback, config.forceName, config.forcePosition, mode, config.maskText]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     const term = displayValue.trim();
     if (!term) return;
 
-    // Tajný režim — Enter otvára prvý návrh (maskovací text), aby trik fungoval
     const isCovertMode =
       mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler';
+    const requestedTitle = isCovertMode
+      ? (config.maskText || term).trim()
+      : term;
+
+    try {
+      const response = await fetch(
+        `/api/wikipedia/resolve?title=${encodeURIComponent(requestedTitle)}`,
+      );
+      if (response.ok) {
+        const resolved = await response.json();
+        if (resolved.exists && resolved.slug) {
+          handleSuggestionClick({
+            title: resolved.title,
+            slug: resolved.slug,
+            excerpt: '',
+          });
+          return;
+        }
+      }
+    } catch {
+      // On a temporary resolve failure, continue with already loaded API results.
+    }
 
     if (isCovertMode && suggestions.length > 0) {
       handleSuggestionClick(suggestions[0]);
       return;
     }
 
-    // Normálny režim — Enter vedie na stránku výsledkov vyhľadávania,
-    // presne ako „Špeciálne:Hľadanie" na skutočnej Wikipédii
     resetSearchState();
     router.push(
-      `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(term)}`
+      `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(requestedTitle)}`,
     );
     onClose?.();
   };
