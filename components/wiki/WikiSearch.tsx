@@ -1,18 +1,22 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWiki } from '@/lib/wiki-context';
 import { ACTIVATION_CODE } from '@/lib/wiki-store';
+import {
+  fetchSuggestions,
+  foldTitle,
+  peekSuggestions,
+  pickSuggestionForTerm,
+  prefetchArticle,
+  type SuggestionResult,
+} from '@/lib/wiki-api-client';
 import Image from 'next/image';
 
-interface SearchResult {
-  title: string;
-  slug: string;
-  excerpt: string;
+interface SearchResult extends SuggestionResult {
+  excerpt?: string;
   snippetHtml?: string;
-  wordcount?: number;
-  thumbnail?: string;
 }
 
 interface WikiSearchProps {
@@ -20,14 +24,29 @@ interface WikiSearchProps {
   onClose?: () => void;
 }
 
+/** Odpoveď API → položka našeptávača. */
+function toSearchResult(result: SuggestionResult): SearchResult {
+  const snippet = result.snippet || '';
+  return {
+    ...result,
+    excerpt: snippet.replace(/<[^>]+>/g, ''),
+    snippetHtml: snippet || undefined,
+  };
+}
+
 function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const [displayValue, setDisplayValue] = useState('');
   const [realInput, setRealInput] = useState('');
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [rawSuggestions, setRawSuggestions] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // Načítavanie prebieha — doterajšie návrhy zostávajú viditeľné (žiadny blesk
+  // „nič sa nenašlo“ počas písania).
+  const [isSearching, setIsSearching] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const requestIdRef = useRef(0);
   const router = useRouter();
-  
+
   const { config, setConfig, resetArticleIndex, activateForce } = useWiki();
 
   const [mode, setMode] = useState<'normal' | 'typing_code' | 'wait_position' | 'typing_name' | 'typing_filler'>('normal');
@@ -48,24 +67,24 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     const prevValue = realInput;
-    
+
     const isAddition = newValue.length > prevValue.length;
     const isDeletion = newValue.length < prevValue.length;
-    
+
     const addedChars = isAddition ? newValue.slice(prevValue.length) : '';
-    
+
     setRealInput(newValue);
-    
+
     if (isDeletion) {
       const deletedCount = prevValue.length - newValue.length;
-      
+
       if (mode === 'normal') {
         setDisplayValue(newValue);
       } else if (mode === 'typing_code') {
         const newCodePos = Math.max(0, codePosition - deletedCount);
         setCodePosition(newCodePos);
         setDisplayValue(prev => prev.slice(0, -deletedCount));
-        
+
         if (newCodePos === 0) {
           setMode('normal');
           setDisplayValue(newValue);
@@ -73,11 +92,11 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       } else if (mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler') {
         setDisplayValue(prev => prev.slice(0, -deletedCount));
         setCoverTextIndex(prev => Math.max(0, prev - deletedCount));
-        
+
         if (mode === 'typing_name' && covertName.length > 0) {
           setCovertName(prev => prev.slice(0, -deletedCount));
         }
-        
+
         if (newValue.length === 0) {
           setMode('normal');
           setCoverTextIndex(0);
@@ -87,14 +106,14 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       }
       return;
     }
-    
+
     if (isAddition && addedChars.length > 0) {
       for (const char of addedChars) {
         processCharacter(char);
       }
     }
   };
-  
+
   const processCharacter = (key: string) => {
     const lowerKey = key.toLowerCase();
     const coverText = config.maskText || 'História Slovenska';
@@ -106,15 +125,15 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         setDisplayValue(prev => prev + key);
         return;
       }
-      
+
       setDisplayValue(prev => prev + key);
     }
-    
+
     else if (mode === 'typing_code') {
       if (codePosition < ACTIVATION_CODE.length && lowerKey === ACTIVATION_CODE[codePosition]) {
         const newCodePos = codePosition + 1;
         setCodePosition(newCodePos);
-        
+
         if (newCodePos === ACTIVATION_CODE.length) {
           setDisplayValue(coverText.slice(0, ACTIVATION_CODE.length));
           setCoverTextIndex(ACTIVATION_CODE.length);
@@ -129,17 +148,17 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         setDisplayValue(prev => prev + key);
       }
     }
-    
+
     else if (mode === 'wait_position') {
       const posMap: Record<string, number> = { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6 };
-      
+
       if (posMap[lowerKey]) {
         const pos = posMap[lowerKey];
         setConfig({ ...config, forcePosition: pos, forceName: '', currentArticleIndex: 0, isForceActive: false });
         setMode('typing_name');
         setCovertName('');
       }
-      
+
       if (coverTextIndex < coverText.length) {
         setDisplayValue(prev => prev + coverText[coverTextIndex]);
         setCoverTextIndex(prev => prev + 1);
@@ -147,7 +166,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         setDisplayValue(prev => prev + ' ');
       }
     }
-    
+
     else if (mode === 'typing_name') {
       if (key === ' ') {
         if (covertName.length > 0) {
@@ -158,16 +177,16 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
             currentArticleIndex: 0,
             isForceActive: false
           });
-          
+
           updateURL(config.forcePosition, finalName);
         }
-        
+
         setDisplayValue(coverText);
         setCoverTextIndex(coverText.length);
         setMode('typing_filler');
       } else {
         setCovertName(prev => prev + key);
-        
+
         if (coverTextIndex < coverText.length) {
           setDisplayValue(prev => prev + coverText[coverTextIndex]);
           setCoverTextIndex(prev => prev + 1);
@@ -176,159 +195,237 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         }
       }
     }
-    
+
     else if (mode === 'typing_filler') {
       // Absorb keystrokes
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleSearch();
-    }
-  };
+  const isCovertMode = mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler';
+  const term = displayValue.trim();
 
-  // Search suggestions with Wikipedia API
+  // ---------------------------------------------------------------------------
+  // Našeptávač — reálne články zo slovenskej Wikipédie.
+  //
+  // Rýchlosť: krátke oneskorenie, pamäťová cache (spätné mazanie je okamžité),
+  // zrušenie zastaraných požiadaviek a prednačítanie prvého článku.
+  // Spoľahlivosť: kým neprídu nové výsledky, zobrazujeme predchádzajúce, takže
+  // uprostred písania nikdy neblikne „nič sa nenašlo“.
+  // ---------------------------------------------------------------------------
   useEffect(() => {
-    const isCovertMode = mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler';
-    
-    if (displayValue.length < 1) {
-      setSuggestions([]);
+    const id = ++requestIdRef.current;
+
+    if (!term) {
+      setRawSuggestions([]);
       setShowSuggestions(false);
+      setIsSearching(false);
+      setActiveIndex(-1);
       return;
     }
-    
+
     setShowSuggestions(true);
 
+    let cancelled = false;
     const controller = new AbortController();
-    const term = displayValue.trim();
-    const maskText = (config.maskText || 'História Slovenska').trim();
 
-    const searchWikipedia = async () => {
-      try {
-        const response = await fetch(`/api/wikipedia/search?suggest=1&q=${encodeURIComponent(term)}`, { signal: controller.signal });
-        if (!response.ok) throw new Error('Wikipedia search failed');
-        const data = await response.json();
-        const realResults: SearchResult[] = (data.results || []).map((result: { title: string; slug: string; snippet: string; wordcount: number; thumbnail: string | null }) => ({
-          title: result.title,
-          slug: result.slug,
-          excerpt: result.snippet.replace(/<[^>]+>/g, ''),
-          snippetHtml: result.snippet,
-          wordcount: result.wordcount,
-          thumbnail: result.thumbnail || undefined,
-        }));
-
-        if (isCovertMode) {
-          realResults.sort((a, b) => {
-            const aExact = a.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0;
-            const bExact = b.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0;
-            return Number(bExact) - Number(aExact);
-          });
-          if (config.showFeedback && config.forceName && realResults.length >= 2) {
-            const positionLetter = String.fromCharCode(96 + config.forcePosition);
-            realResults[1] = { ...realResults[1], excerpt: `${positionLetter}-${config.forceName.toLowerCase()}`, snippetHtml: undefined };
-          }
-        }
-
-        setSuggestions(realResults);
-        setShowSuggestions(realResults.length > 0);
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          setSuggestions([]);
-          setShowSuggestions(false);
-        }
-      }
+    const apply = (results: SearchResult[]) => {
+      if (cancelled || id !== requestIdRef.current) return;
+      setRawSuggestions(results);
+      setIsSearching(false);
+      setActiveIndex(-1);
+      // Prednačítaj najpravdepodobnejší článok — otvorí sa okamžite.
+      const best = results.find((result) => result.source !== 'fulltext') || results[0];
+      if (best) prefetchArticle(best.title);
     };
 
-    const timeoutId = setTimeout(searchWikipedia, 150);
+    const cached = peekSuggestions(term);
+    if (cached) {
+      apply(cached.map(toSearchResult));
+      return () => {
+        cancelled = true;
+        controller.abort();
+      };
+    }
+
+    setIsSearching(true);
+    const delay = term.length <= 2 ? 60 : 110;
+    const timer = setTimeout(() => {
+      fetchSuggestions(term, controller.signal)
+        .then((results) => apply(results.map(toSearchResult)))
+        .catch((error) => {
+          if (cancelled || (error as Error).name === 'AbortError') return;
+          // Dočasný výpadok API nie je „neexistujúci výsledok“: podržíme
+          // doterajšie návrhy a len ukončíme indikátor načítavania.
+          if (id === requestIdRef.current) setIsSearching(false);
+        });
+    }, delay);
+
     return () => {
-      clearTimeout(timeoutId);
+      cancelled = true;
+      clearTimeout(timer);
       controller.abort();
     };
-  }, [displayValue, config.showFeedback, config.forceName, config.forcePosition, mode, config.maskText]);
+    // `mode`/`config` zámerne nie sú v závislostiach — inak by každá zmena
+    // maskovacieho režimu spustila nový dotaz na Wikipédiu.
+  }, [term]);
 
-  const handleSearch = async () => {
-    const term = displayValue.trim();
-    if (!term) return;
+  // Návrhy zobrazené v dropdowne (v utajenom režime zoradené podľa masky).
+  const suggestions = useMemo(() => {
+    if (!isCovertMode || rawSuggestions.length === 0) return rawSuggestions;
 
-    const isCovertMode =
-      mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler';
-    const requestedTitle = isCovertMode
-      ? (config.maskText || term).trim()
-      : term;
-
-    try {
-      const response = await fetch(
-        `/api/wikipedia/resolve?title=${encodeURIComponent(requestedTitle)}`,
-      );
-      if (response.ok) {
-        const resolved = await response.json();
-        if (resolved.exists && resolved.slug) {
-          handleSuggestionClick({
-            title: resolved.title,
-            slug: resolved.slug,
-            excerpt: '',
-          });
-          return;
-        }
-      }
-    } catch {
-      // On a temporary resolve failure, continue with already loaded API results.
-    }
-
-    if (isCovertMode && suggestions.length > 0) {
-      handleSuggestionClick(suggestions[0]);
-      return;
-    }
-
-    resetSearchState();
-    router.push(
-      `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(requestedTitle)}`,
+    const maskFolded = foldTitle(config.maskText || 'História Slovenska');
+    const sorted = [...rawSuggestions].sort(
+      (a, b) => Number(foldTitle(b.title) === maskFolded) - Number(foldTitle(a.title) === maskFolded),
     );
-    onClose?.();
-  };
+
+    if (config.showFeedback && config.forceName && sorted.length >= 2) {
+      const positionLetter = String.fromCharCode(96 + config.forcePosition);
+      sorted[1] = {
+        ...sorted[1],
+        excerpt: `${positionLetter}-${config.forceName.toLocaleLowerCase('sk-SK')}`,
+        snippetHtml: undefined,
+      };
+    }
+
+    return sorted;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawSuggestions, isCovertMode, config.maskText, config.showFeedback, config.forceName, config.forcePosition]);
 
   // Spoločný reset vnútorného stavu vyhľadávania
-  const resetSearchState = () => {
+  const resetSearchState = useCallback(() => {
     setDisplayValue('');
     setRealInput('');
     setMode('normal');
     setCovertName('');
     setCoverTextIndex(0);
     setCodePosition(0);
-    setSuggestions([]);
+    setRawSuggestions([]);
     setShowSuggestions(false);
-  };
+    setIsSearching(false);
+    setActiveIndex(-1);
+  }, []);
 
-  const handleClear = () => {
-    setDisplayValue('');
-    setRealInput('');
-    setMode('normal');
-    setCovertName('');
-    setCoverTextIndex(0);
-    setCodePosition(0);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    setTimeout(() => inputRef.current?.focus(), 10);
-  };
-
-  const handleSuggestionClick = (suggestion: SearchResult) => {
+  const handleSuggestionClick = useCallback((suggestion: SearchResult) => {
     if (config.forceName) {
       activateForce();
     }
-    
-    setDisplayValue('');
-    setRealInput('');
-    setMode('normal');
-    setCovertName('');
-    setCoverTextIndex(0);
-    setCodePosition(0);
-    setSuggestions([]);
-    setShowSuggestions(false);
-    
-    router.push(`/wiki/${suggestion.slug}`);
+
+    resetSearchState();
+    router.push(`/wiki/${encodeURIComponent(suggestion.slug)}`);
     onClose?.();
+  }, [activateForce, config.forceName, onClose, resetSearchState, router]);
+
+  // Stránka s výsledkami plného vyhľadávania (Special:Search) — zobrazí reálne
+  // zhody v textoch článkov, nikdy „článok neexistuje“.
+  const goToFullSearch = useCallback((query: string) => {
+    resetSearchState();
+    router.push(
+      `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(query)}`,
+    );
+    onClose?.();
+  }, [onClose, resetSearchState, router]);
+
+  const handleSearch = useCallback(async () => {
+    if (!term) return;
+
+    const requestedTitle = isCovertMode ? (config.maskText || term).trim() : term;
+    const needle = foldTitle(requestedTitle);
+
+    // 1–3) Presná zhoda / zhoda podľa názvu z našeptávača → otvoríme okamžite,
+    // bez ďalšieho volania na server.
+    if (isCovertMode) {
+      const exact = suggestions.find((item) => foldTitle(item.title) === needle);
+      const target = exact || suggestions[0];
+      if (target) {
+        handleSuggestionClick(target);
+        return;
+      }
+    } else {
+      const target = pickSuggestionForTerm(requestedTitle, suggestions);
+      if (target) {
+        handleSuggestionClick(target);
+        return;
+      }
+    }
+
+    // 4) Našeptávač nič nemá (napr. okamžitý Enter) → overíme presný názov.
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      const response = await fetch(
+        `/api/wikipedia/resolve?title=${encodeURIComponent(requestedTitle)}`,
+        { signal: controller.signal },
+      );
+      clearTimeout(timer);
+      if (response.ok) {
+        const resolved = await response.json();
+        if (resolved.exists && resolved.slug) {
+          handleSuggestionClick({ title: resolved.title, slug: resolved.slug, snippet: '' } as SearchResult);
+          return;
+        }
+        if (!isCovertMode && resolved.closest?.slug) {
+          // Najbližší návrh otvoríme len ak naozaj začína písaným výrazom —
+          // inak radšej zobrazíme reálne výsledky fulltextového vyhľadávania.
+          const closestFolded = foldTitle(resolved.closest.title || '');
+          if (closestFolded.startsWith(needle)) {
+            handleSuggestionClick({
+              title: resolved.closest.title,
+              slug: resolved.closest.slug,
+              snippet: '',
+            } as SearchResult);
+            return;
+          }
+        }
+      }
+    } catch {
+      // Rozhodovanie prenecháme fulltextovému vyhľadávaniu nižšie.
+    }
+
+    // 5) Fulltextové výsledky — reálne články obsahujúce hľadaný výraz.
+    goToFullSearch(requestedTitle);
+  }, [goToFullSearch, handleSuggestionClick, isCovertMode, config.maskText, suggestions, term]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const rowCount = suggestions.length + (!isCovertMode && term ? 1 : 0);
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < suggestions.length) {
+        handleSuggestionClick(suggestions[activeIndex]);
+        return;
+      }
+      if (activeIndex === suggestions.length && !isCovertMode && term) {
+        goToFullSearch(term);
+        return;
+      }
+      void handleSearch();
+      return;
+    }
+
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (rowCount === 0) return;
+      e.preventDefault();
+      setActiveIndex((current) => {
+        if (e.key === 'ArrowDown') {
+          return current + 1 >= rowCount ? 0 : current + 1;
+        }
+        return current - 1 < 0 ? rowCount - 1 : current - 1;
+      });
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setActiveIndex(-1);
+      setShowSuggestions(false);
+      onClose?.();
+    }
+  };
+
+  const handleClear = () => {
+    requestIdRef.current += 1;
+    resetSearchState();
+    setTimeout(() => inputRef.current?.focus(), 10);
   };
 
   const [isFocused, setIsFocused] = useState(false);
@@ -339,6 +436,9 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       inputRef.current.focus();
     }
   }, [fullPage]);
+
+  const showFullSearchRow = !isCovertMode && Boolean(term);
+  const highlightClass = (index: number) => (index === activeIndex ? 'bg-[#eaf3ff]' : '');
 
   return (
     <div className={`relative ${fullPage ? 'w-full' : 'w-full'}`}>
@@ -352,16 +452,17 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
           onKeyDown={handleKeyDown}
           onFocus={() => {
             setIsFocused(true);
-            if (displayValue.length > 0 && suggestions.length > 0) {
+            if (displayValue.length > 0) {
               setShowSuggestions(true);
             }
           }}
           onBlur={() => {
             setIsFocused(false);
+            setActiveIndex(-1);
             setTimeout(() => setShowSuggestions(false), 200);
           }}
           className="absolute inset-0 w-full h-full z-10 caret-transparent"
-          style={{ 
+          style={{
             color: 'transparent',
             background: 'transparent',
             WebkitTextFillColor: 'transparent'
@@ -371,15 +472,20 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
           autoCapitalize="off"
           spellCheck="false"
           enterKeyHint="search"
+          role="combobox"
+          aria-expanded={showSuggestions && Boolean(term)}
+          aria-controls="wiki-search-suggestions"
+          aria-autocomplete="list"
+          aria-activedescendant={activeIndex >= 0 ? `wiki-suggestion-${activeIndex}` : undefined}
         />
-        
+
         {/* Minerva Neue mobile search box - white with blue border when focused */}
-        <div 
+        <div
           className={`w-full flex items-center bg-white rounded-sm border-2 ${isFocused ? 'border-[#36c]' : 'border-[#a2a9b1]'}`}
           style={{ height: '40px' }}
         >
           {/* Display text */}
-          <div 
+          <div
             className="flex-1 text-[16px] pointer-events-none px-3"
             style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
           >
@@ -387,13 +493,24 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
               {displayValue || 'Hľadať na Wikipédii'}
             </span>
           </div>
-          
+
+          {/* Indikátor načítavania */}
+          {isSearching && (
+            <div className="flex items-center justify-center w-10 h-full" aria-hidden="true">
+              <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" stroke="#c8ccd1" strokeWidth="3" />
+                <path d="M21 12a9 9 0 00-9-9" stroke="#36c" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+            </div>
+          )}
+
           {/* Clear button */}
-          {displayValue && (
+          {displayValue && !isSearching && (
             <button
               type="button"
               onClick={handleClear}
               className="flex items-center justify-center w-10 h-full text-[#54595d]"
+              aria-label="Vymazať hľadanie"
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="#72777d">
                 <path d="M10 0a10 10 0 100 20 10 10 0 000-20zm5 13.59L13.59 15 10 11.41 6.41 15 5 13.59 8.59 10 5 6.41 6.41 5 10 8.59 13.59 5 15 6.41 11.41 10 15 13.59z"/>
@@ -404,22 +521,28 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       </div>
 
       {/* Dropdown suggestions - Minerva Neue mobile style with thumbnails */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div 
+      {showSuggestions && term && (
+        <div
+          id="wiki-search-suggestions"
+          role="listbox"
           className={`${fullPage ? 'fixed left-0 right-0 top-[56px]' : 'absolute top-full left-0 right-0'} bg-white z-50 overflow-auto`}
           style={{ maxHeight: fullPage ? 'calc(100vh - 56px)' : '400px' }}
         >
           {suggestions.map((suggestion, index) => (
             <button
               key={`${suggestion.slug}-${index}`}
+              id={`wiki-suggestion-${index}`}
               type="button"
+              role="option"
+              aria-selected={index === activeIndex}
+              onMouseEnter={() => setActiveIndex(index)}
               onMouseDown={(e) => {
                 e.preventDefault();
                 handleSuggestionClick(suggestion);
               }}
-              className="w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3"
-              style={{ 
-                borderBottom: index < suggestions.length - 1 ? '1px solid #eaecf0' : 'none',
+              className={`w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 ${highlightClass(index)}`}
+              style={{
+                borderBottom: '1px solid #eaecf0',
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
               }}
             >
@@ -442,7 +565,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
                   </svg>
                 </div>
               )}
-              
+
               {/* Text content */}
               <div className="flex-1 min-w-0 overflow-hidden">
                 <div className="text-[16px] font-bold text-[#202122] leading-tight truncate">
@@ -462,19 +585,36 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
             </button>
           ))}
 
-          {/* Spodný riadok — „Hľadať stránky obsahujúce…" ako na Wikipédii */}
-          {mode === 'normal' && displayValue.trim() && (
+          {/* Načítavame reálne výsledky z Wikipédie — nie „nič sa nenašlo“ */}
+          {isSearching && suggestions.length === 0 && (
+            <div
+              className="flex items-center px-4 py-3 text-[14px] text-[#54595d]"
+              style={{
+                borderBottom: showFullSearchRow ? '1px solid #eaecf0' : 'none',
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+              }}
+              role="status"
+              aria-live="polite"
+            >
+              <svg className="animate-spin mr-3" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="#eaecf0" strokeWidth="3" />
+                <path d="M21 12a9 9 0 00-9-9" stroke="#36c" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              Hľadám na Wikipédii…
+            </div>
+          )}
+
+          {/* Spodný riadok — „Hľadať stránky obsahujúce…“ ako na Wikipédii */}
+          {showFullSearchRow && (
             <button
               type="button"
+              id="wiki-suggestion-fulltext"
+              onMouseEnter={() => setActiveIndex(suggestions.length)}
               onMouseDown={(e) => {
                 e.preventDefault();
-                resetSearchState();
-                router.push(
-                  `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(displayValue.trim())}`
-                );
-                onClose?.();
+                goToFullSearch(term);
               }}
-              className="w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 bg-[#f8f9fa]"
+              className={`w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 bg-[#f8f9fa] ${highlightClass(suggestions.length)}`}
               style={{
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
               }}
@@ -487,7 +627,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-[14px] text-[#202122] leading-tight">
-                  Hľadať stránky obsahujúce <span className="font-bold text-[#3366cc]">{displayValue.trim()}</span>
+                  Hľadať stránky obsahujúce <span className="font-bold text-[#3366cc]">{term}</span>
                 </div>
               </div>
             </button>

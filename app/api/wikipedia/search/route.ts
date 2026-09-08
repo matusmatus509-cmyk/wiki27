@@ -1,88 +1,333 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import {
+  WikiApiError,
+  sortPagesByIndex,
+  titleToSlug,
+  wikiApi,
+  wikiJson,
+  wikiPages,
+} from '@/lib/server/wikipedia-api';
 
-const WIKI_HEADERS = { 'User-Agent': 'WikiForce/1.0 (educational Wikipedia API client)' };
+/**
+ * Vyhľadávanie nad reálnou slovenskou Wikipédiou (MediaWiki API).
+ *
+ * Dva režimy:
+ *  1. `?suggest=1&q=…`  — našeptávač do vyhľadávacieho poľa. Používa rovnaký
+ *     prefix search ako sk.wikipedia.org (profil `fuzzy`, čiže ignoruje
+ *     diakritiku aj preklepy) a k nemu dohľadáva obrázok + krátky úryvok.
+ *     Ak prefix search nič nenájde, doplníme reálne články, ktorých názov
+ *     výraz obsahuje (`intitle:`), prípadne fulltextové zhody — takže
+ *     priebežné písanie nikdy neskončí s prázdnym výsledkom.
+ *  2. `?q=…&offset=…`  — plnohodnotné fulltextové vyhľadávanie (Special:Search)
+ *     so zvýraznenými úryvkami, počtom slov, dátumom úpravy a náhľadmi.
+ *
+ * Rýchlosť: jeden upstream request na našepťovanie, Next.js data cache
+ * (5 min) + CDN cache (`stale-while-revalidate`), žiadne zbytočné volania.
+ */
 
+const SUGGEST_LIMIT = 10;
+/**
+ * Koľko návrhov stačí na to, aby sme nedohľadávali ďalšie zdroje.
+ * Nízke číslo = našeptávač väčšinou vystačí s jediným upstream requestom
+ * (rýchlosť), pri 1–2 zhodách ešte doplníme reálne články podľa názvu.
+ */
+const ENOUGH_SUGGESTIONS = 3;
+
+type RawPage = {
+  pageid?: number;
+  ns?: number;
+  title?: string;
+  index?: number;
+  extract?: string;
+  thumbnail?: { source?: string };
+  missing?: string;
+  invalid?: string;
+};
+
+type ApiResult = {
+  title: string;
+  slug: string;
+  snippet: string;
+  wordcount: number;
+  timestamp: string;
+  thumbnail: string | null;
+  /** Ako sme článok našli — kvôli zoradeniu a debugovaniu. */
+  source: 'prefix' | 'title' | 'fulltext';
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/** Z MediaWiki snippetu necháme len zvýraznenie nájdeného výrazu. */
 function cleanSnippet(snippet: string): string {
   return snippet.replace(/<(?!\/?span class="searchmatch")[^>]+>/g, '').trim();
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+/** CirrusSearch má vlastnú syntax — úvodzovky/operátory z používateľského vstupu odstránime. */
+function sanitizeForCirrus(query: string): string {
+  return query.replace(/["'`\\^~{}[\]|<>:*?!()/]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function toSuggestion(page: RawPage, source: ApiResult['source']): ApiResult | null {
+  if (!page?.pageid || page.ns !== 0 || !page.title) return null;
+  const extract = (page.extract || '').trim();
+  return {
+    title: page.title,
+    slug: titleToSlug(page.title),
+    snippet: escapeHtml(extract) + (extract.length >= 190 ? '…' : ''),
+    wordcount: extract ? extract.split(/\s+/).length : 0,
+    timestamp: '',
+    thumbnail: page.thumbnail?.source || null,
+    source,
+  };
+}
+
+/** Našeptávač: prefix search + náhľad + úryvok v jedinom requeste. */
+async function fetchPrefixSuggestions(query: string, limit: number): Promise<ApiResult[]> {
+  const data = await wikiApi(
+    {
+      action: 'query',
+      redirects: 1,
+      generator: 'prefixsearch',
+      gpssearch: query,
+      gpsnamespace: 0,
+      gpslimit: limit,
+      // fuzzy = ignoruje diakritiku a opraví preklepy ("ludovit stur" → "Ľudovít Štúr")
+      gpsprofile: 'fuzzy',
+      prop: 'pageimages|extracts',
+      piprop: 'thumbnail',
+      pithumbsize: 120,
+      pilimit: 'max',
+      exintro: 1,
+      explaintext: 1,
+      exchars: 200,
+      exlimit: 'max',
+    },
+    { revalidate: 300, timeoutMs: 5000 },
+  );
+  return sortPagesByIndex(wikiPages<RawPage>(data))
+    .map((page) => toSuggestion(page, 'prefix'))
+    .filter((item): item is ApiResult => Boolean(item));
+}
+
+/** Doplnkové vyhľadávanie cez generátor (intitle: / fulltext) — opäť 1 request. */
+async function fetchGeneratorSuggestions(
+  search: string,
+  limit: number,
+  source: ApiResult['source'],
+): Promise<ApiResult[]> {
+  const data = await wikiApi(
+    {
+      action: 'query',
+      generator: 'search',
+      gsrsearch: search,
+      gsrnamespace: 0,
+      gsrlimit: limit,
+      prop: 'pageimages|extracts',
+      piprop: 'thumbnail',
+      pithumbsize: 120,
+      pilimit: 'max',
+      exintro: 1,
+      explaintext: 1,
+      exchars: 200,
+      exlimit: 'max',
+    },
+    { revalidate: 300, timeoutMs: 5000 },
+  );
+  return sortPagesByIndex(wikiPages<RawPage>(data))
+    .map((page) => toSuggestion(page, source))
+    .filter((item): item is ApiResult => Boolean(item));
+}
+
+function mergeUnique(primary: ApiResult[], extra: ApiResult[], limit: number): ApiResult[] {
+  const seen = new Set(primary.map((item) => item.title.toLocaleLowerCase('sk-SK')));
+  const merged = [...primary];
+  for (const item of extra) {
+    if (merged.length >= limit) break;
+    const key = item.title.toLocaleLowerCase('sk-SK');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
+}
+
+/** Presná zhoda názvu (bez diakritiky/veľkosti písmen) patrí vždy na prvé miesto. */
+function promoteExactMatch(results: ApiResult[], query: string): ApiResult[] {
+  if (results.length < 2) return results;
+  const folded = query.toLocaleLowerCase('sk-SK').replace(/\s+/g, ' ').trim();
+  const index = results.findIndex(
+    (item) => item.title.toLocaleLowerCase('sk-SK').replace(/\s+/g, ' ') === folded,
+  );
+  if (index <= 0) return results;
+  const [exact] = results.splice(index, 1);
+  return [exact, ...results];
+}
+
+async function suggest(query: string, limit: number) {
+  let results: ApiResult[] = [];
+  let attempts = 0;
+  let failures = 0;
+
+  // 1) To, čo robí vyhľadávacie pole na Wikipédii — prefix search.
+  attempts += 1;
+  try {
+    results = await fetchPrefixSuggestions(query, limit);
+  } catch {
+    failures += 1;
+  }
+  if (results.length >= ENOUGH_SUGGESTIONS) {
+    return promoteExactMatch(results, query).slice(0, limit);
+  }
+
+  const safeQuery = sanitizeForCirrus(query);
+
+  // 2) Názvy článkov obsahujúce výraz kdekoľvek (nie len na začiatku).
+  if (safeQuery.length >= 2) {
+    attempts += 1;
+    try {
+      const byTitle = await fetchGeneratorSuggestions(`intitle:${safeQuery}`, limit, 'title');
+      results = mergeUnique(results, byTitle, limit);
+    } catch {
+      failures += 1; // intitle je len doplnok — nesmie zhodiť celý našeptávač
+    }
+  }
+  if (results.length >= 1) return promoteExactMatch(results, query).slice(0, limit);
+
+  // 3) Posledná záchrana: skutočný fulltext (výraz sa vyskytuje v texte článkov).
+  if (safeQuery.length >= 3) {
+    attempts += 1;
+    try {
+      const byText = await fetchGeneratorSuggestions(safeQuery, 5, 'fulltext');
+      results = mergeUnique(results, byText, limit);
+    } catch {
+      failures += 1;
+    }
+  }
+
+  // Ak vypadli všetky zdroje, neklameme „nič sa nenašlo“ — klient podrží
+  // predchádzajúce návrhy a zopakuje dotaz neskôr.
+  if (results.length === 0 && attempts > 0 && failures === attempts) {
+    throw new WikiApiError('Wikipedia suggestions unavailable', 502);
+  }
+
+  return results.slice(0, limit);
+}
+
+/** Plné vyhľadávanie — Special:Search so snippetmi a stránkovaním. */
+async function fulltext(query: string, limit: number, offset: number) {
+  const data = await wikiApi(
+    {
+      action: 'query',
+      list: 'search',
+      srsearch: query,
+      srnamespace: 0,
+      srlimit: limit,
+      sroffset: offset,
+      srprop: 'snippet|wordcount|timestamp|redirecttitle',
+      srinfo: 'totalhits|suggestion|rewrittenquery',
+    },
+    { revalidate: 60, timeoutMs: 8000 },
+  );
+
+  const hits: Array<{
+    title: string;
+    snippet?: string;
+    wordcount?: number;
+    timestamp?: string;
+  }> = data?.query?.search || [];
+  const searchinfo = data?.query?.searchinfo || {};
+  const totalHits: number = searchinfo.totalhits ?? hits.length;
+  const suggestion: string = searchinfo.suggestion || '';
+
+  const results: ApiResult[] = hits.map((hit) => ({
+    title: hit.title,
+    slug: titleToSlug(hit.title),
+    snippet: cleanSnippet(hit.snippet || ''),
+    wordcount: hit.wordcount || 0,
+    timestamp: hit.timestamp || '',
+    thumbnail: null,
+    source: 'fulltext' as const,
+  }));
+
+  if (!results.length) {
+    // Ani fulltext nič nenašiel? Skúsme reálne články podľa názvu, aby stránka
+    // výsledkov nezostala prázdna pri preklepe či chýbajúcej diakritike.
+    const safeQuery = sanitizeForCirrus(query);
+    if (safeQuery.length >= 2 && offset === 0) {
+      try {
+        const byTitle = await fetchGeneratorSuggestions(`intitle:${safeQuery}`, limit, 'title');
+        return { results: byTitle, totalHits: byTitle.length, offset, suggestion };
+      } catch {
+        /* ignorujeme */
+      }
+    }
+    return { results: [], totalHits, offset, suggestion };
+  }
+
+  // Náhľady pre nájdené články v jednom requeste (paralelne s ničím — potrebujeme názvy).
+  try {
+    const thumbs = await wikiApi(
+      {
+        action: 'query',
+        titles: results.map((result) => result.title).join('|'),
+        prop: 'pageimages',
+        piprop: 'thumbnail',
+        pithumbsize: 120,
+        pilimit: 'max',
+        redirects: 1,
+      },
+      { revalidate: 300, timeoutMs: 5000 },
+    );
+    const byTitle = new Map<string, string>();
+    wikiPages<{ title?: string; thumbnail?: { source?: string } }>(thumbs).forEach((page) => {
+      if (page.title && page.thumbnail?.source) byTitle.set(page.title, page.thumbnail.source);
+    });
+    results.forEach((result) => {
+      result.thumbnail = byTitle.get(result.title) || null;
+    });
+  } catch {
+    /* Náhľady sú voliteľné. */
+  }
+
+  return { results, totalHits, offset, suggestion };
 }
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const query = params.get('q')?.trim();
+  const query = (params.get('q') || '').trim();
+  const isSuggest = params.get('suggest') === '1';
+  const limit = Math.min(20, Math.max(1, parseInt(params.get('limit') || '10', 10) || SUGGEST_LIMIT));
   const offset = Math.max(0, parseInt(params.get('offset') || '0', 10) || 0);
-  const suggest = params.get('suggest') === '1';
 
-  if (!query) return NextResponse.json({ results: [], totalHits: 0, offset });
+  if (!query) {
+    return wikiJson({ results: [], totalHits: 0, offset, query: '' }, { maxAge: 0 });
+  }
 
   try {
-    // The search box on Wikipedia uses prefix search, not full-text CirrusSearch.
-    if (suggest) {
-      const response = await fetch(
-        `https://sk.wikipedia.org/w/api.php?action=query&format=json&generator=prefixsearch&gpssearch=${encodeURIComponent(query)}&gpsnamespace=0&gpslimit=10&prop=pageimages%7Cextracts%7Crevisions&piprop=thumbnail&pithumbsize=120&exintro=1&explaintext=1&exsentences=2&exlimit=10&rvprop=timestamp&redirects=1`,
-        { headers: WIKI_HEADERS, next: { revalidate: 60 } },
+    if (isSuggest) {
+      const results = await suggest(query, limit);
+      return wikiJson(
+        { results, totalHits: results.length, offset: 0, query },
+        { maxAge: 300 },
       );
-      if (!response.ok) throw new Error('Wikipedia autocomplete API error');
-      const data = await response.json();
-      const pages = Object.values(data.query?.pages || {}) as Array<{
-        pageid: number; ns: number; title: string; index?: number; extract?: string;
-        thumbnail?: { source: string }; revisions?: Array<{ timestamp?: string }>;
-      }>;
-      const results = pages
-        .filter((page) => page.pageid && page.ns === 0)
-        .sort((a, b) => (a.index ?? 999) - (b.index ?? 999))
-        .map((page) => ({
-          title: page.title,
-          slug: page.title.replace(/ /g, '_'),
-          snippet: escapeHtml(page.extract || ''),
-          wordcount: page.extract ? page.extract.trim().split(/\s+/).length : 0,
-          timestamp: page.revisions?.[0]?.timestamp || '',
-          thumbnail: page.thumbnail?.source || null,
-        }));
-      return NextResponse.json({ results, totalHits: results.length, offset: 0 });
     }
 
-    // Special:Search remains a genuine full-text Wikipedia search.
-    const response = await fetch(
-      `https://sk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=10&sroffset=${offset}&srprop=snippet%7Cwordcount%7Ctimestamp&srnamespace=0`,
-      { headers: WIKI_HEADERS, cache: 'no-store' },
-    );
-    if (!response.ok) throw new Error('Wikipedia search API error');
-    const data = await response.json();
-    const searchResults = data.query?.search || [];
-    const totalHits = data.query?.searchinfo?.totalhits ?? searchResults.length;
-    if (!searchResults.length) return NextResponse.json({ results: [], totalHits: 0, offset });
-
-    const titles = searchResults.map((result: { title: string }) => result.title).join('|');
-    const thumbnails: Record<string, string> = {};
-    try {
-      const thumbResponse = await fetch(
-        `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(titles)}&prop=pageimages&format=json&pithumbsize=120&piprop=thumbnail`,
-        { headers: WIKI_HEADERS, cache: 'no-store' },
-      );
-      if (thumbResponse.ok) {
-        const thumbData = await thumbResponse.json();
-        Object.values(thumbData.query?.pages || {}).forEach((value: unknown) => {
-          const page = value as { title: string; thumbnail?: { source: string } };
-          if (page.thumbnail?.source) thumbnails[page.title] = page.thumbnail.source;
-        });
-      }
-    } catch { /* Thumbnails are optional. */ }
-
-    const results = searchResults.map((result: { title: string; snippet: string; wordcount: number; timestamp: string }) => ({
-      title: result.title,
-      slug: result.title.replace(/ /g, '_'),
-      snippet: cleanSnippet(result.snippet || ''),
-      wordcount: result.wordcount || 0,
-      timestamp: result.timestamp || '',
-      thumbnail: thumbnails[result.title] || null,
-    }));
-    return NextResponse.json({ results, totalHits, offset });
+    const data = await fulltext(query, limit, offset);
+    return wikiJson({ ...data, query }, { maxAge: 60 });
   } catch (error) {
+    // Dočasný výpadok Wikipédie nie je „neexistujúci výsledok“ — vrátime 502
+    // a klient podrží predchádzajúce výsledky.
     console.error('Wikipedia search error:', error);
-    return NextResponse.json({ results: [], totalHits: 0, offset, error: 'Failed to search Wikipedia' }, { status: 502 });
+    return wikiJson(
+      { results: [], totalHits: 0, offset, query, error: 'Failed to search Wikipedia' },
+      { status: 502 },
+    );
   }
 }

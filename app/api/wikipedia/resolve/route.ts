@@ -1,43 +1,76 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { titleToSlug, wikiApi, wikiJson, wikiPages } from '@/lib/server/wikipedia-api';
 
-const WIKI_HEADERS = { 'User-Agent': 'WikiForce/1.0 (educational Wikipedia API client)' };
+type WikiPage = {
+  pageid?: number;
+  ns?: number;
+  title?: string;
+  missing?: string;
+  invalid?: string;
+};
 
-type WikiPage = { pageid?: number; ns?: number; title?: string; missing?: string; invalid?: string; index?: number };
-
+/**
+ * Overí, či zadaný názov existuje ako článok, a vráti jeho kanonický titul
+ * (vyrieši presmerovania aj veľké/malé písmená a diakritiku).
+ *
+ * Používa sa pri odoslaní vyhľadávania, takže musí byť rýchly: obe volania
+ * (presný názov + prefix search) bežia paralelne a odpoveď cacheuje CDN.
+ */
 export async function GET(request: NextRequest) {
-  const requested = request.nextUrl.searchParams.get('title')?.trim();
-  if (!requested) return NextResponse.json({ exists: false });
+  const requested = (request.nextUrl.searchParams.get('title') || '').trim();
+  if (!requested) return wikiJson({ exists: false }, { maxAge: 0 });
 
-  try {
-    const exactResponse = await fetch(
-      `https://sk.wikipedia.org/w/api.php?action=query&format=json&redirects=1&titles=${encodeURIComponent(requested)}`,
-      { headers: WIKI_HEADERS, cache: 'no-store' },
-    );
-    if (!exactResponse.ok) throw new Error('Wikipedia resolve API error');
-    const exactData = await exactResponse.json();
-    const exactPage = (Object.values(exactData.query?.pages || {}) as WikiPage[])
-      .find((page) => page.pageid && page.ns === 0 && !('missing' in page) && !('invalid' in page));
-    if (exactPage?.title) {
-      return NextResponse.json({ exists: true, title: exactPage.title, slug: exactPage.title.replace(/ /g, '_') });
-    }
+  const exactPromise = wikiApi(
+    { action: 'query', redirects: 1, titles: requested },
+    { revalidate: 3600, timeoutMs: 4000 },
+  ).catch(() => null);
 
-    // Prefix search resolves casing such as "albert einstein" → "Albert Einstein".
-    const prefixResponse = await fetch(
-      `https://sk.wikipedia.org/w/api.php?action=query&format=json&generator=prefixsearch&gpssearch=${encodeURIComponent(requested)}&gpsnamespace=0&gpslimit=10`,
-      { headers: WIKI_HEADERS, cache: 'no-store' },
-    );
-    if (!prefixResponse.ok) throw new Error('Wikipedia prefix resolve API error');
-    const prefixData = await prefixResponse.json();
-    const requestedFolded = requested.toLocaleLowerCase('sk-SK');
-    const match = (Object.values(prefixData.query?.pages || {}) as WikiPage[]).find(
-      (page) => page.pageid && page.ns === 0 && page.title?.toLocaleLowerCase('sk-SK') === requestedFolded,
-    );
-    if (match?.title) {
-      return NextResponse.json({ exists: true, title: match.title, slug: match.title.replace(/ /g, '_') });
-    }
-    return NextResponse.json({ exists: false });
-  } catch (error) {
-    console.error('Wikipedia title resolve error:', error);
-    return NextResponse.json({ exists: false, error: 'Failed to resolve Wikipedia title' }, { status: 502 });
+  const prefixPromise = wikiApi(
+    {
+      action: 'query',
+      redirects: 1,
+      generator: 'prefixsearch',
+      gpssearch: requested,
+      gpsnamespace: 0,
+      gpslimit: 10,
+      gpsprofile: 'fuzzy',
+    },
+    { revalidate: 3600, timeoutMs: 4000 },
+  ).catch(() => null);
+
+  const [exactData, prefixData] = await Promise.all([exactPromise, prefixPromise]);
+
+  if (!exactData && !prefixData) {
+    // Wikipédia neodpovedala — neklameme, že článok neexistuje.
+    return wikiJson({ exists: false, error: 'Failed to resolve Wikipedia title' }, { status: 502 });
   }
+
+  const exactPage = wikiPages<WikiPage>(exactData).find(
+    (page) => page.pageid && page.ns === 0 && !('missing' in page) && !('invalid' in page),
+  );
+  if (exactPage?.title) {
+    return wikiJson(
+      { exists: true, title: exactPage.title, slug: titleToSlug(exactPage.title) },
+      { maxAge: 3600 },
+    );
+  }
+
+  // Prefix search vyrieši diakritiku/veľkosť písmen ("albert einstein" → "Albert Einstein").
+  const requestedFolded = requested.toLocaleLowerCase('sk-SK');
+  const candidates = wikiPages<WikiPage>(prefixData).filter((page) => page.pageid && page.ns === 0);
+  const match = candidates.find(
+    (page) => page.title?.toLocaleLowerCase('sk-SK') === requestedFolded,
+  );
+  if (match?.title) {
+    return wikiJson(
+      { exists: true, title: match.title, slug: titleToSlug(match.title) },
+      { maxAge: 3600 },
+    );
+  }
+
+  const first = candidates[0]?.title;
+  return wikiJson(
+    { exists: false, closest: first ? { title: first, slug: titleToSlug(first) } : null },
+    { maxAge: 300 },
+  );
 }

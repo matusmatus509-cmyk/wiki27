@@ -9,6 +9,14 @@ import {
 } from '@/lib/encyclopedia-db';
 import Image from 'next/image';
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import {
+  fetchArticle,
+  fetchArticleImage,
+  fetchSearchPage,
+  peekArticle,
+  type ArticlePayload,
+  type SuggestionResult,
+} from '@/lib/wiki-api-client';
 import { useRouter } from 'next/navigation';
 import { WikiFooter } from './WikiFooter';
 
@@ -16,54 +24,12 @@ interface WikiArticleProps {
   slug: string;
 }
 
-interface WikipediaArticle {
-  title: string;
-  content: string;
-  image: string | null;
-  links: string[];
-  categories: string[];
-  wikipediaUrl: string;
-}
+type WikipediaArticle = ArticlePayload;
 
-// Fetch image from Wikipedia for force articles - tries multiple sources
-async function fetchWikipediaImage(title: string): Promise<string | null> {
-  // Try Slovak Wikipedia first
-  try {
-    const skResponse = await fetch(
-      `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`
-    );
-    if (skResponse.ok) {
-      const data = await skResponse.json();
-      const pages = data.query?.pages;
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        const img = pages[pageId]?.thumbnail?.source;
-        if (img) return img;
-      }
-    }
-  } catch {
-    // Continue to English
-  }
-  
-  // Fallback to English Wikipedia for better image coverage
-  try {
-    const enResponse = await fetch(
-      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`
-    );
-    if (enResponse.ok) {
-      const data = await enResponse.json();
-      const pages = data.query?.pages;
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        const img = pages[pageId]?.thumbnail?.source;
-        if (img) return img;
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
+// Náhľadový obrázok pre generované (force) články ťaháme cez náš serverový
+// proxy `/api/wikipedia/image` (pozri efekt nižšie). Klient predtým posielal
+// až osem priamych volaní na Wikipédiu pri každom otvorení článku — vrátane
+// veľkej mapy prekladov — čo zbytočne spomaľovalo načítanie.
 
 export function WikiArticle({ slug }: WikiArticleProps) {
   const router = useRouter();
@@ -71,9 +37,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   const [wikiArticle, setWikiArticle] = useState<WikipediaArticle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notFoundSuggestions, setNotFoundSuggestions] = useState<
-    { title: string; slug: string; snippet: string }[]
-  >([]);
+  const [notFoundSuggestions, setNotFoundSuggestions] = useState<SuggestionResult[]>([]);
   const [forceLinks, setForceLinks] = useState<string[]>([]);
   const [forceImage, setForceImage] = useState<string | null>(null);
   
@@ -138,138 +102,71 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     return () => controller.abort();
   }, [config.isForceActive, currentLetter, config.forcePosition, detectedCategory]);
 
-  // ALWAYS fetch image from Wikipedia API for any article (force mode or normal)
+  // Náhradný obrázok len vtedy, keď ho reálny článok nemá (force režim).
   useEffect(() => {
-    const fetchImage = async () => {
-      // First try the exact title
-      let img = await fetchWikipediaImage(actualSlug);
-      if (!img) {
-        // Try with capitalized first letter
-        const capitalized = actualSlug.charAt(0).toUpperCase() + actualSlug.slice(1);
-        img = await fetchWikipediaImage(capitalized);
-      }
-      if (!img && actualSlug.includes(' ')) {
-        // Try just the first word for compound terms
-        const firstWord = actualSlug.split(' ')[0];
-        img = await fetchWikipediaImage(firstWord);
-      }
-      if (!img) {
-        // Try English translation for common Slovak terms
-        const translations: Record<string, string> = {
-          // Music
-          'gitara': 'guitar', 'klavír': 'piano', 'husle': 'violin',
-          'bubon': 'drum', 'flauta': 'flute', 'trubka': 'trumpet',
-          'saxofón': 'saxophone', 'kontrabas': 'double bass', 'harfa': 'harp',
-          'akordeón': 'accordion', 'harmonika': 'harmonica', 'violončelo': 'cello',
-          'klarinet': 'clarinet', 'hoboj': 'oboe', 'fagot': 'bassoon',
-          'bicie': 'drums', 'xylofón': 'xylophone', 'tamburína': 'tambourine',
-          'opera': 'opera', 'symfónia': 'symphony', 'koncert': 'concert',
-          'jazz': 'jazz', 'rock': 'rock music', 'blues': 'blues',
-          // Sports
-          'futbal': 'football', 'hokej': 'hockey', 'tenis': 'tennis',
-          'basketbal': 'basketball', 'plávanie': 'swimming', 'box': 'boxing',
-          'atletika': 'athletics', 'lyžovanie': 'skiing', 'cyklistika': 'cycling',
-          'volejbal': 'volleyball', 'hádzaná': 'handball', 'golf': 'golf',
-          'šach': 'chess', 'biatlon': 'biathlon', 'gymnastika': 'gymnastics',
-          'karate': 'karate', 'džudo': 'judo', 'surfovanie': 'surfing',
-          'snowboard': 'snowboarding', 'maratón': 'marathon', 'rugby': 'rugby',
-          // Science
-          'fyzika': 'physics', 'chémia': 'chemistry', 'biológia': 'biology',
-          'matematika': 'mathematics', 'astronómia': 'astronomy', 'geológia': 'geology',
-          'ekológia': 'ecology', 'genetika': 'genetics', 'medicína': 'medicine',
-          'psychológia': 'psychology', 'filozofia': 'philosophy', 'sociológia': 'sociology',
-          'atóm': 'atom', 'molekula': 'molecule', 'bunka': 'cell',
-          'evolúcia': 'evolution', 'gravitácia': 'gravitation', 'energia': 'energy',
-          // Geography
-          'slovensko': 'slovakia', 'bratislava': 'bratislava', 'európa': 'europe',
-          'ázia': 'asia', 'afrika': 'africa', 'amerika': 'america',
-          'austrália': 'australia', 'antarktída': 'antarctica', 'oceán': 'ocean',
-          'hora': 'mountain', 'rieka': 'river', 'jazero': 'lake',
-          'more': 'sea', 'ostrov': 'island', 'púšť': 'desert',
-          'les': 'forest', 'sopka': 'volcano', 'vodopád': 'waterfall',
-          'alpy': 'alps', 'himaláje': 'himalayas', 'sahara': 'sahara',
-          'dunaj': 'danube', 'nil': 'nile', 'amazonka': 'amazon river',
-          // History
-          'história': 'history', 'vojna': 'war', 'revolúcia': 'revolution',
-          'ríša': 'empire', 'kráľovstvo': 'kingdom', 'republika': 'republic',
-          'stredovek': 'middle ages', 'renesancia': 'renaissance', 'antika': 'antiquity',
-          'cisár': 'emperor', 'kráľ': 'king', 'kráľovná': 'queen',
-          // Nature
-          'lev': 'lion', 'slon': 'elephant', 'tiger': 'tiger',
-          'medveď': 'bear', 'vlk': 'wolf', 'orol': 'eagle',
-          'delfín': 'dolphin', 'veľryba': 'whale', 'žirafa': 'giraffe',
-          'pes': 'dog', 'mačka': 'cat', 'kôň': 'horse',
-          'motýľ': 'butterfly', 'včela': 'bee', 'mravec': 'ant',
-          'ruža': 'rose', 'tulipán': 'tulip', 'orchidea': 'orchid',
-          'dub': 'oak', 'smrek': 'spruce', 'borovica': 'pine',
-          // Technology
-          'počítač': 'computer', 'internet': 'internet', 'telefón': 'telephone',
-          'robot': 'robot', 'raketa': 'rocket', 'satelit': 'satellite',
-          'automobil': 'automobile', 'lietadlo': 'airplane', 'loď': 'ship',
-          'televízor': 'television', 'rádio': 'radio', 'kamera': 'camera',
-          // Culture
-          'umenie': 'art', 'literatúra': 'literature', 'film': 'film',
-          'divadlo': 'theatre', 'múzeum': 'museum', 'galéria': 'gallery',
-          'tanec': 'dance', 'balet': 'ballet', 'architektúra': 'architecture',
-          'maliarstvo': 'painting', 'sochárstvo': 'sculpture', 'fotografia': 'photography',
-        };
-        const lowerSlug = actualSlug.toLowerCase();
-        if (translations[lowerSlug]) {
-          img = await fetchWikipediaImage(translations[lowerSlug]);
-        }
-      }
-      setForceImage(img);
+    if (!config.isForceActive || wikiArticle?.image) return;
+    const controller = new AbortController();
+    let cancelled = false;
+    fetchArticleImage(actualSlug, 320, controller.signal)
+      .then((image) => {
+        if (!cancelled) setForceImage(image);
+      })
+      .catch(() => {
+        if (!cancelled) setForceImage(null);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
     };
-    fetchImage();
-  }, [actualSlug]);
+  }, [actualSlug, config.isForceActive, wikiArticle?.image]);
 
-  // Always fetch the real article, retrying temporary upstream failures.
+  // Reálny článok zo slovenskej Wikipédie. Server robí retry aj timeout,
+  // klient cache — článok prednačítaný z našeptávača sa zobrazí okamžite.
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
     setIsLoading(true);
     setError(null);
     setNotFoundSuggestions([]);
     const title = actualSlug;
 
+    const prefetched = peekArticle(title);
+    if (prefetched) {
+      setWikiArticle(prefetched);
+      setIsLoading(false);
+    }
+
     const loadArticle = async () => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-          const response = await fetch(`/api/wikipedia/article?title=${encodeURIComponent(title)}`);
-          const data = await response.json();
-          if (cancelled) return;
-
-          if (response.status === 404) {
-            setWikiArticle(null);
-            setError('Article not found');
-            fetch(`/api/wikipedia/search?q=${encodeURIComponent(title)}`)
-              .then((result) => result.json())
-              .then((result) => !cancelled && setNotFoundSuggestions((result.results || []).slice(0, 6)))
-              .catch(() => !cancelled && setNotFoundSuggestions([]));
-            setIsLoading(false);
-            return;
-          }
-
-          if (response.ok && !data.error) {
-            setWikiArticle(data);
-            setError(null);
-            setIsLoading(false);
-            return;
-          }
-        } catch {
-          // Retry below.
+      try {
+        const data = await fetchArticle(title, controller.signal);
+        if (cancelled) return;
+        if (data) {
+          setWikiArticle(data);
+          setError(null);
+        } else {
+          // Wikipédia taký článok naozaj nemá → navrhneme najbližšie reálne články.
+          setWikiArticle(null);
+          setError('Article not found');
+          fetchSearchPage(title, 0)
+            .then((page) => !cancelled && setNotFoundSuggestions(page.results.slice(0, 6)))
+            .catch(() => !cancelled && setNotFoundSuggestions([]));
         }
-        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
-      }
-
-      if (!cancelled) {
+        setIsLoading(false);
+      } catch (error) {
+        // Zrušenie, ktoré sme spôsobili sami (zmena slugu / odchod zo stránky),
+        // nie je dôvod ukazovať chybu — inak by používateľ zostal na kostre.
+        if (cancelled || controller.signal.aborted) return;
         setWikiArticle(null);
         setError('Wikipedia API unavailable');
         setIsLoading(false);
       }
     };
 
-    loadArticle();
-    return () => { cancelled = true; };
+    void loadArticle();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [actualSlug]);
 
 

@@ -16,3 +16,18 @@ Example:
 - Optimized for Next.js App Router
 - Mobile Wikipedia proxy
 - Slovak force engine
+
+## Vyhľadávanie (reálne Wikipedia API)
+Všetky endpointy `/api/wikipedia/*` volajú priamo `sk.wikipedia.org/w/api.php`
+(prefixsearch s profilom `fuzzy`, CirrusSearch fulltext, `action=parse`).
+Žiadne lokálne databázy sa na vyhľadávaní nepodieľajú.
+
+Voliteľné premenné prostredia (v produkcii netreba nastavovať):
+- `WIKIPEDIA_API_BASE` – vlastná/proxy základná URL MediaWiki (predvolene https://sk.wikipedia.org)
+- `WIKIPEDIA_EN_API_BASE` – to isté pre náhradné obrázky z en.wikipedia.org
+- `WIKIPEDIA_USER_AGENT` – vlastný User-Agent pre volania na Wikimedia
+
+Rýchlosť: server-side data cache (`revalidate`) + CDN hlavičky
+(`s-maxage`, `stale-while-revalidate`, `stale-if-error`) a pamäťová cache
+v prehliadači (`lib/wiki-api-client.ts`), takže opakované písanie a návraty
+na článok sú takmer okamžité.
