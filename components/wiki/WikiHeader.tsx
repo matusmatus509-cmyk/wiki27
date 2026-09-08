@@ -15,7 +15,7 @@ export function WikiHeader() {
   return (
     <>
       {/* Mobile header - Minerva Neue exact clone */}
-      <header className="z-40 bg-[#eaecf0]" style={{ boxShadow: 'none' }}>
+      <header className="mw-header z-40 bg-white">
         <div className="flex items-center justify-between h-[48px] px-4">
           {/* Left - Hamburger menu */}
           <button 
@@ -66,7 +66,7 @@ export function WikiHeader() {
       {showSearch && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
           {/* Search header */}
-          <div className="flex items-center h-[56px] px-3 bg-[#eaecf0] flex-shrink-0">
+          <div className="flex items-center h-[56px] px-3 bg-white border-b border-[#eaecf0] flex-shrink-0">
             <button
               onClick={() => setShowSearch(false)}
               className="flex items-center justify-center w-[44px] h-[44px] -ml-2"

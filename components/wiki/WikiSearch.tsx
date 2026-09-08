@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWiki } from '@/lib/wiki-context';
-import { searchArticles, SLOVAK_ARTICLES, ACTIVATION_CODE } from '@/lib/wiki-store';
+import { ACTIVATION_CODE } from '@/lib/wiki-store';
 import Image from 'next/image';
 
 interface SearchResult {
@@ -201,204 +201,47 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
     
     setShowSuggestions(true);
 
-    if (isCovertMode) {
-      const maskText = config.maskText || 'História Slovenska';
-      const maskSlug = maskText.toLowerCase().replace(/\s+/g, '-');
-      const currentDisplay = displayValue.toLowerCase().trim();
-
-      // Kód spätnej väzby (druhý návrh) pre prípad zapnutého feedbacku
-      const applyFeedback = (list: SearchResult[]): SearchResult[] => {
-        if (config.showFeedback && config.forceName && list.length >= 2) {
-          const posLetter = String.fromCharCode(96 + config.forcePosition);
-          const feedbackCode = `${posLetter}-${config.forceName.toLowerCase()}`;
-          list[1] = { ...list[1], excerpt: feedbackCode };
-        }
-        return list;
-      };
-
-      // Zostavenie finálneho zoznamu: maskovací text vždy prvý, potom reálne
-      // výsledky hľadania podľa textu viditeľného na obrazovke (bez dupl.).
-      const buildList = (realResults: SearchResult[]): SearchResult[] => {
-        const list: SearchResult[] = [
-          {
-            title: maskText,
-            slug: maskSlug,
-            excerpt: 'Článok o histórii Slovenska',
-          },
-        ];
-        for (const suggestion of realResults) {
-          if (suggestion.title !== maskText && list.length < 8) {
-            list.push(suggestion);
-          }
-        }
-        return applyFeedback(list);
-      };
-
-      // Generátor záložných návrhov, keď API nie je dostupné — vyzerá ako
-      // autentický autocomplete pre to, čo vidí pozorovateľ na obrazovke.
-      const generateRealisticSuggestions = (typed: string): SearchResult[] => {
-        if (!typed) return [];
-
-        const suggestionMap: Record<string, string[]> = {
-          'h': ['História', 'Hlavné mesto', 'Hudba', 'Húsky', 'Habsburgovci'],
-          'hi': ['História', 'Himaláje', 'Hinduizmus', 'Hippokrates', 'Hirošima'],
-          'his': ['História', 'História Slovenska', 'Historické vedy', 'Historik', 'Hispánia'],
-          'hist': ['História', 'História Slovenska', 'Historické udalosti', 'Historik', 'Histológia'],
-          'histo': ['História', 'História Slovenska', 'Historické obdobia', 'Histológia', 'Historický materializmus'],
-          'histor': ['História', 'História Slovenska', 'Historické vedy', 'Historik', 'Historiografia'],
-          'histori': ['História', 'Historik', 'Historiografia', 'História umenia', 'Historické pamiatky'],
-          'histór': ['História', 'História Slovenska', 'História Európy', 'História umenia', 'História filozofie'],
-          'história': ['História', 'História Slovenska', 'História Európy', 'História umenia', 'História vedy'],
-          'história ': ['História Slovenska', 'História Európy', 'História umenia', 'História Bratislavy', 'História Česka'],
-          'história s': ['História Slovenska', 'História stredoveku', 'História Španielska', 'História sveta'],
-          'história sl': ['História Slovenska', 'História Slovinska', 'História slovanskej kultúry'],
-          'história slo': ['História Slovenska', 'História Slovinska', 'História slovenčiny'],
-          'história slov': ['História Slovenska', 'História slovenčiny', 'História slovenského národa'],
-          'história slove': ['História Slovenska', 'História slovenčiny', 'História slovenského národa'],
-          'história sloven': ['História Slovenska', 'História slovenčiny', 'História slovenského národa'],
-          'história slovens': ['História Slovenska', 'História slovenského národa'],
-          'história slovensk': ['História Slovenska', 'História slovenského jazyka', 'História slovenského národa'],
-          'história slovensko': ['História Slovenska'],
-          'história slovenska': ['História Slovenska'],
-        };
-
-        let bestMatch = '';
-        for (const key of Object.keys(suggestionMap)) {
-          if (typed.startsWith(key) && key.length > bestMatch.length) {
-            bestMatch = key;
-          }
-        }
-
-        if (bestMatch && suggestionMap[bestMatch]) {
-          return suggestionMap[bestMatch].map(title => ({
-            title,
-            slug: title.toLowerCase().replace(/\s+/g, '-'),
-            excerpt: `Článok o téme ${title}`,
-          }));
-        }
-
-        const firstWord = typed.split(' ')[0];
-        if (firstWord.length >= 1) {
-          const baseTitle = typed.charAt(0).toUpperCase() + typed.slice(1);
-          return [
-            { title: baseTitle, slug: baseTitle.toLowerCase().replace(/\s+/g, '-'), excerpt: `Hľadať "${baseTitle}"` },
-          ];
-        }
-
-        return [];
-      };
-
-      // OKAMŽITÝ stav: maskovací text prvý + záložné návrhy, aby dropdown
-      // nereagoval s oneskorením. Realne výsledky z Wikipédie ho hneď doplnia.
-      setSuggestions(buildList(generateRealisticSuggestions(currentDisplay)));
-      setShowSuggestions(true);
-
-      // Reálne hľadanie podľa zobrazeného (maskovaného) textu — pre pozorovateľa
-      // sa vyhľadáva úplne normálne, rovnako ako pre bežného používateľa.
-      const controller = new AbortController();
-
-      const searchWikipedia = async () => {
-        try {
-          const response = await fetch(
-            `/api/wikipedia/search?q=${encodeURIComponent(currentDisplay)}`,
-            { signal: controller.signal }
-          );
-          const data = await response.json();
-          const wikiResults = (data.results || []) as {
-            title: string;
-            slug: string;
-            snippet: string;
-            wordcount: number;
-            thumbnail: string | null;
-          }[];
-
-          const realResults: SearchResult[] = wikiResults.map(r => ({
-            title: r.title,
-            slug: r.slug,
-            excerpt: r.snippet.replace(/<[^>]+>/g, ''),
-            snippetHtml: r.snippet,
-            wordcount: r.wordcount,
-            thumbnail: r.thumbnail || undefined,
-          }));
-
-          setSuggestions(buildList(realResults));
-          setShowSuggestions(true);
-        } catch (error) {
-          if ((error as Error).name !== 'AbortError') {
-            // Zostávajú záložné návrhy, ktoré sú už zobrazené
-            console.error('Covert search error:', error);
-          }
-        }
-      };
-
-      const timeoutId = setTimeout(searchWikipedia, 150);
-
-      return () => {
-        clearTimeout(timeoutId);
-        controller.abort();
-      };
-    }
-
-    // Normal mode — reálne výsledky zo slovenskej Wikipédie cez naše API
     const controller = new AbortController();
-    const term = displayValue.toLowerCase().trim();
-
-    const localFallback = () => {
-      // Fallback, keď API nie je dostupné — lokálna encyklopédia
-      const results: SearchResult[] = searchArticles(term)
-        .map(article => {
-          const slug = Object.entries(SLOVAK_ARTICLES).find(
-            ([, a]) => a.title === article.title
-          )?.[0] || article.title.toLowerCase().replace(/\s+/g, '-');
-          return { title: article.title, slug, excerpt: article.excerpt };
-        })
-        .slice(0, 6);
-      setSuggestions(results);
-      setShowSuggestions(true);
-    };
+    const term = displayValue.trim();
+    const maskText = (config.maskText || 'História Slovenska').trim();
 
     const searchWikipedia = async () => {
       try {
-        const response = await fetch(
-          `/api/wikipedia/search?q=${encodeURIComponent(term)}`,
-          { signal: controller.signal }
-        );
+        const response = await fetch(`/api/wikipedia/search?q=${encodeURIComponent(term)}`, { signal: controller.signal });
+        if (!response.ok) throw new Error('Wikipedia search failed');
         const data = await response.json();
-        const wikiResults = (data.results || []) as {
-          title: string;
-          slug: string;
-          snippet: string;
-          wordcount: number;
-          thumbnail: string | null;
-        }[];
-
-        if (wikiResults.length === 0) {
-          // Nič sa nenašlo — skúsime lokálnu encyklopédiu
-          localFallback();
-          return;
-        }
-
-        const combinedResults: SearchResult[] = wikiResults.map(r => ({
-          title: r.title,
-          slug: r.slug,
-          excerpt: r.snippet.replace(/<[^>]+>/g, ''),
-          snippetHtml: r.snippet,
-          wordcount: r.wordcount,
-          thumbnail: r.thumbnail || undefined,
+        const realResults: SearchResult[] = (data.results || []).map((result: { title: string; slug: string; snippet: string; wordcount: number; thumbnail: string | null }) => ({
+          title: result.title,
+          slug: result.slug,
+          excerpt: result.snippet.replace(/<[^>]+>/g, ''),
+          snippetHtml: result.snippet,
+          wordcount: result.wordcount,
+          thumbnail: result.thumbnail || undefined,
         }));
 
-        setSuggestions(combinedResults);
-        setShowSuggestions(true);
+        if (isCovertMode) {
+          realResults.sort((a, b) => {
+            const aExact = a.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0;
+            const bExact = b.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0;
+            return Number(bExact) - Number(aExact);
+          });
+          if (config.showFeedback && config.forceName && realResults.length >= 2) {
+            const positionLetter = String.fromCharCode(96 + config.forcePosition);
+            realResults[1] = { ...realResults[1], excerpt: `${positionLetter}-${config.forceName.toLowerCase()}`, snippetHtml: undefined };
+          }
+        }
+
+        setSuggestions(realResults);
+        setShowSuggestions(realResults.length > 0);
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
-          console.error('Search error:', error);
-          localFallback();
+          setSuggestions([]);
+          setShowSuggestions(false);
         }
       }
     };
 
     const timeoutId = setTimeout(searchWikipedia, 150);
-
     return () => {
       clearTimeout(timeoutId);
       controller.abort();
