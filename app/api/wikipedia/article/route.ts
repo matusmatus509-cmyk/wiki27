@@ -8,12 +8,26 @@ const WIKI_HEADERS = {
 // navigačné boxy, správy o údržbe a ďalšie meta prvky. CSS ich síce aj tak
 // skrýva, ale server-side čistenie výrazne zníži prenášaný objem dát.
 function cleanArticleHtml(html: string): string {
-  // Keep real citations, infoboxes, tables and article structure. Only editor
-  // controls and embedded styles are removed; presentation is handled locally.
-  return html
-    .replace(/<style[\s\S]*?<\/style>/g, '')
-    .replace(/<span class="mw-editsection[\s\S]*?<\/span>/g, '')
-    .replace(/<p><\/p>/g, '');
+  return (
+    html
+      // <style> bloky z predlohy (tlačové/tmavé štýly Hlavnej stránky a pod.)
+      .replace(/<style[\s\S]*?<\/style>/g, '')
+      // Editovacie sekcie a odkazy na editáciu
+      .replace(/<span class="mw-editsection[\s\S]*?<\/span>/g, '')
+      // Referencie inline (superscript) — číslovaný zoznam zostáva
+      .replace(/<sup class="reference[^"]*"[^>]*>[\s\S]*?<\/sup>/g, '')
+      .replace(/<sup id="cite_ref[^"]*"[^>]*>[\s\S]*?<\/sup>/g, '')
+      // Navigačné a meta boxy (navbox, ambox, sistersitebox, side-box…)
+      .replace(/<div class="(?:navbox|sistersitebox|side-box|metadata|ambox|dmbox|mw-jump-link|noprint|printonly)[^"]*"[^>]*>[\s\S]*?<\/div>/g, '')
+      .replace(/<table class="(?:navbox|metadata|ambox|vertical-navbox)[^"]*"[^>]*>[\s\S]*?<\/table>/g, '')
+      // Skryté šablónové prvky
+      .replace(/<div style="display:\s*none[^>]*>[\s\S]*?<\/div>/g, '')
+      // Kategórie v spodku článku (zobrazujeme vlastný blok)
+      .replace(/<div id="catlinks[^"]*"[^>]*>[\s\S]*?<\/div>\s*<\/div>/g, '')
+      .replace(/<div id="catlinks[^"]*"[^>]*>[\s\S]*?<\/div>/g, '')
+      // Prázdne odseky z čistenia
+      .replace(/<p><\/p>/g, '')
+  );
 }
 
 // Wikipedia API article content endpoint - fetches REAL HTML content with links
