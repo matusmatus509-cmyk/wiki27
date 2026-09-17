@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Settings, 
@@ -285,23 +285,12 @@ export function AdminPanel() {
                 </button>
               </div>
 
-              {/* Mask text setting */}
-              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-                <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
-                  <Eye className="w-5 h-5 text-blue-400" />
-                  Maskovaci text
-                </h2>
-                <p className="text-gray-400 text-sm mb-3">
-                  Tento text sa zobrazuje kym pises aktivacny kod ({ACTIVATION_CODE})
-                </p>
-                <input
-                  type="text"
-                  value={localConfig.maskText}
-                  onChange={(e) => setLocalConfig({ ...localConfig, maskText: e.target.value })}
-                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
-                  placeholder="Historia Slovenska"
-                />
-              </div>
+              {/* Mask text setting — musí byť reálny názov článku z Wikipédie */}
+              <MaskTextSetting
+                value={localConfig.maskText}
+                onChange={(maskText) => setLocalConfig({ ...localConfig, maskText })}
+                activationCode={ACTIVATION_CODE}
+              />
             </div>
 
             {/* Settings column */}
@@ -382,6 +371,211 @@ export function AdminPanel() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Nastavenie maskovacieho textu — musí to byť REÁLNY názov článku zo
+// slovenskej Wikipédie. Písaním sa zobrazujú živé návrhy (rovnaké API ako
+// vyhľadávanie), uložiť ide len overený existujúci článok.
+// ────────────────────────────────────────────────────────────────────────────
+
+interface MaskSuggestion {
+  title: string;
+  slug: string;
+  snippet: string;
+  thumbnail?: string;
+}
+
+function MaskTextSetting({
+  value,
+  onChange,
+  activationCode,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  activationCode: string;
+}) {
+const [query, setQuery] = useState(value);
+  const [suggestions, setSuggestions] = useState<MaskSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [highlighted, setHighlighted] = useState(-1);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // Má už používateľ potvrdený platný článok (z návrhov)?
+  const committedRef = useRef(value !== '');
+
+  // Sync pri externé zmene (napr. Reset)
+  useEffect(() => {
+    setQuery(value);
+    setStatus(value ? 'valid' : 'idle');
+    committedRef.current = value !== '';
+  }, [value]);
+
+  // Živé návrhy z Wikipedie — rovnaké API (opensearch prefix) ako autocomplete
+  // vo vyhľadávaní. Fetch beží iba kým používateľ píše; keď sám vyplnil presný
+  // názov článku, návrhy sa zavrú.
+  useEffect(() => {
+    const term = query.trim();
+    if (!term) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    // Ak je text presne zhodný s už potvrdeným článkom, nerenderuj návrhy
+    if (committedRef.current && term === value.trim()) {
+      setShowSuggestions(false);
+      return;
+    }
+    // Krátky vstup — nič nehľadáme
+    if (term.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    setStatus('checking');
+    const timeoutId = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/wikipedia/search?q=${encodeURIComponent(term)}`,
+          { signal: controller.signal },
+        );
+        const data = await res.json();
+        const items = (data.results || []).slice(0, 6).map((r: { title: string; snippet: string; slug: string; thumbnail?: string }) => ({
+          title: r.title,
+          slug: r.slug,
+          snippet: r.snippet,
+          thumbnail: r.thumbnail,
+        }));
+        setSuggestions(items);
+        setShowSuggestions(items.length > 0);
+        setStatus(items.length > 0 ? 'invalid' : 'idle');
+      } catch {
+        if (!controller.signal.aborted) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
+      }
+    }, 180);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  // Zavretie dropdownu pri kliku mimo
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Potvrdenie platného názvu článku (z návrhov) — až teraz sa zapíše do nastavení
+  const commitTitle = (title: string) => {
+    setQuery(title);
+    onChange(title);
+    setStatus('valid');
+    committedRef.current = true;
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const applySuggestion = (s: MaskSuggestion) => {
+    commitTitle(s.title);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && highlighted >= 0 && suggestions[highlighted]) {
+      e.preventDefault();
+      applySuggestion(suggestions[highlighted]);
+      return;
+    }
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlighted((h) => Math.min(h + 1, suggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlighted((h) => Math.max(h - 1, -1));
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    }
+  };
+
+  const statusLabel =
+    status === 'checking' ? 'Overujem…'
+    : status === 'valid' ? '✓ Článok existuje na Wikipédii'
+    : status === 'invalid' ? 'Vyber jeden z návrhov, aby to bol presný názov článku'
+    : '';
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <h2 className="text-lg font-medium mb-4 flex items-center gap-2">
+        <Eye className="w-5 h-5 text-blue-400" />
+        Maskovaci text
+      </h2>
+      <p className="text-gray-400 text-sm mb-3">
+        Tento text sa zobrazuje kym pises aktivacny kod ({activationCode}). Musí to byť{' '}
+        <b>reálny názov článku zo slovenskej Wikipédie</b> — pri písaní sa zobrazujú
+        živé návrhy rovnaké ako vo vyhľadávaní a vybrať môžeš len existujúci článok.
+      </p>
+      <div ref={boxRef} className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setStatus('idle');
+            setHighlighted(-1);
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+          className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+          placeholder="Zacni pisat nazov clanku, napr. História Slovenska"
+          autoComplete="off"
+        />
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded shadow-xl z-50 overflow-hidden">
+            {suggestions.map((s, i) => (
+              <button
+                key={s.slug}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  applySuggestion(s);
+                }}
+                onMouseEnter={() => setHighlighted(i)}
+                className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-b-0 ${
+                  highlighted === i ? 'bg-blue-50' : 'bg-white'
+                }`}
+              >
+                <div className="text-[14px] font-medium text-gray-900 truncate">{s.title}</div>
+                {s.snippet && (
+                  <div className="text-[12px] text-gray-500 truncate">{s.snippet}</div>
+                )}
+              </button>
+            ))}
+            <div className="px-3 py-1 text-[11px] text-gray-400 bg-gray-50">
+              Návrhy zo slovenskej Wikipédie
+            </div>
+          </div>
+        )}
+      </div>
+      <p
+        className={`text-xs mt-2 ${
+          status === 'valid' ? 'text-green-400' : status === 'invalid' ? 'text-yellow-400' : 'text-gray-500'
+        }`}
+      >
+        {statusLabel || 'Vyber existujúci článok z návrhov, aby trik pôsobil autenticky.'}
+      </p>
     </div>
   );
 }
