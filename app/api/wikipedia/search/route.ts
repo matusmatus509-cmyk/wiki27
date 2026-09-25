@@ -42,6 +42,29 @@ export async function GET(request: NextRequest) {
           timestamp: page.revisions?.[0]?.timestamp || '',
           thumbnail: page.thumbnail?.source || null,
         }));
+
+      // Prefix search vráti nič pre text, ktorý nie je prefix názvu článku
+      // (napr. ^kosice$", "košice  — ..." atď.). Aby dropdown nebol prázdny,
+      // uberieme na fulltext hľadanie ako na skutočnej Wikipédii.
+      if (results.length === 0) {
+        const fallbackResponse = await fetch(
+          `https://sk.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=10&namespace=0&format=json`,
+          { headers: WIKI_HEADERS, next: { revalidate: 60 } },
+        );
+        if (fallbackResponse.ok) {
+          const [_, titles, descriptions, urls] = await fallbackResponse.json() as [string, string[], string[], string[]];
+          const fbResults = (titles || []).map((title: string, i: number) => ({
+            title,
+            slug: title.replace(/ /g, '_'),
+            snippet: escapeHtml(descriptions?.[i] || ''),
+            wordcount: 0,
+            timestamp: '',
+            thumbnail: null,
+          }));
+          return NextResponse.json({ results: fbResults, totalHits: fbResults.length, offset: 0 });
+        }
+      }
+
       return NextResponse.json({ results, totalHits: results.length, offset: 0 });
     }
 

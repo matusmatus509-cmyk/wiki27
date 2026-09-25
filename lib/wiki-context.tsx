@@ -74,7 +74,9 @@ export function WikiProvider({ children }: { children: ReactNode }) {
     }
     
     if (urlMaskText) {
-      baseConfig.maskText = decodeURIComponent(urlMaskText);
+      // URLSearchParams.get() už sám dekóduje — bez ďalšieho decodeURIComponent,
+      // inak sa hodnota s % preformuje druhýkrát a maskText sa pokazí.
+      baseConfig.maskText = urlMaskText;
     }
     
     if (urlFeedback !== null) {

@@ -13,6 +13,9 @@ interface SearchResult {
   snippetHtml?: string;
   wordcount?: number;
   thumbnail?: string;
+  // Syntetický návrh (maskovací text vložený lokálne) — nikdy sa nesmie použiť
+  // ako cieľ navigácie, ak sa nepodarí overiť, že článok naozaj existuje.
+  synthetic?: boolean;
 }
 
 interface WikiSearchProps {
@@ -38,7 +41,9 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
     const url = new URL(window.location.href);
     url.searchParams.set('p', position.toString());
     url.searchParams.set('n', name);
-    url.searchParams.set('m', encodeURIComponent(config.maskText));
+    // URLSearchParams kóduje sám — bez manuálneho enkódovania (inak vznikne
+    // dvojité enkódovanie „Albert%2520Einstein" → pokazený maskText).
+    url.searchParams.set('m', config.maskText);
     url.searchParams.set('f', config.showFeedback ? '1' : '0');
     window.history.replaceState({}, '', url.toString());
   }, [config.maskText, config.showFeedback]);
@@ -220,11 +225,26 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         }));
 
         if (isCovertMode) {
-          realResults.sort((a, b) => {
-            const aExact = a.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0;
-            const bExact = b.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0;
-            return Number(bExact) - Number(aExact);
-          });
+          // Zabezpečime, že maskovací článok (zoverený v nastaveniach) je vždy
+          // prvý v návrhoch — a to aj keď prefix search vráti zvláštne výsledky.
+          const maskExact = realResults.find(
+            (r) => r.title.localeCompare(maskText, 'sk', { sensitivity: 'base' }) === 0,
+          );
+          if (maskExact) {
+            const rest = realResults.filter((r) => r !== maskExact);
+            realResults.splice(0, realResults.length, {
+              ...maskExact,
+              excerpt: maskExact.excerpt || `Článok o téme ${maskText}`,
+            }, ...rest);
+          } else {
+            realResults.unshift({
+              title: maskText,
+              slug: maskText.replace(/ /g, '_'),
+              excerpt: `Článok o téme ${maskText}`,
+              synthetic: true,
+            });
+          }
+
           if (config.showFeedback && config.forceName && realResults.length >= 2) {
             const positionLetter = String.fromCharCode(96 + config.forcePosition);
             realResults[1] = { ...realResults[1], excerpt: `${positionLetter}-${config.forceName.toLowerCase()}`, snippetHtml: undefined };
@@ -277,9 +297,14 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       // On a temporary resolve failure, continue with already loaded API results.
     }
 
-    if (isCovertMode && suggestions.length > 0) {
-      handleSuggestionClick(suggestions[0]);
-      return;
+    if (isCovertMode) {
+      // Maskovací text sa nepodarilo overiť ako článok — skúsime prvý REÁLNY
+      // návrh z Wikipédie (nie syntetický záznam vložený lokálne).
+      const realSuggestion = suggestions.find((s) => !s.synthetic);
+      if (realSuggestion) {
+        handleSuggestionClick(realSuggestion);
+        return;
+      }
     }
 
     resetSearchState();
