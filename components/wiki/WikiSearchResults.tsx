@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -40,23 +40,34 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
   const [offset, setOffset] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [spellingSuggestion, setSpellingSuggestion] = useState<string | null>(null);
 
+  const searchRequest = useRef<AbortController | null>(null);
   const runSearch = useCallback(async (q: string, off: number) => {
     if (!q.trim()) return;
+    searchRequest.current?.abort();
+    const controller = new AbortController();
+    searchRequest.current = controller;
     setIsLoading(true);
+    setSpellingSuggestion(null);
     setHasSearched(true);
     try {
       const res = await fetch(
-        `/api/wikipedia/search?q=${encodeURIComponent(q.trim())}&offset=${off}`
+        `/api/wikipedia/search?q=${encodeURIComponent(q.trim())}&offset=${off}`, { signal: controller.signal }
       );
+      if (!res.ok) throw new Error('Search unavailable');
       const data = await res.json();
+      if (controller.signal.aborted) return;
+      setSearchError(false);
+      setSpellingSuggestion(data.suggestion || null);
       setResults(data.results || []);
       setTotalHits(data.totalHits || 0);
       setOffset(off);
     } catch {
-      setResults([]);
+      if (!controller.signal.aborted) setSearchError(true);
     } finally {
-      setIsLoading(false);
+      if (!controller.signal.aborted) setIsLoading(false);
     }
   }, []);
 
@@ -115,7 +126,7 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
           <div className="py-6 text-[#54595d] text-[14px]">Načítavajú sa výsledky…</div>
         )}
 
-        {!isLoading && hasSearched && results.length === 0 && (
+        {!isLoading && hasSearched && !searchError && results.length === 0 && (
           <div className="py-6 text-[14px] text-[#202122]">
             <p className="mb-2">
               Vo Wikipédii <b>nie je žiadna stránka</b> obsahujúca výraz{' '}
@@ -127,7 +138,10 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
           </div>
         )}
 
-        {!isLoading && results.length > 0 && (
+        {searchError && <p className="mt-4 text-sm">Vyhľadávanie je dočasne nedostupné. <button onClick={() => runSearch(query, offset)} className="text-[#3366cc]">Skúsiť znova</button></p>}
+        {spellingSuggestion && <p className="mt-3">Mali ste na mysli <button className="text-[#3366cc]" onClick={() => { setQuery(spellingSuggestion); runSearch(spellingSuggestion, 0); }}>{spellingSuggestion}</button>?</p>}
+
+        {!isLoading && !searchError && results.length > 0 && (
           <>
             <div className="text-[13px] text-[#54595d] mt-3 mb-2">
               Zobrazené výsledky {offset + 1}–{offset + results.length} z približne{' '}
@@ -139,7 +153,7 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
               {results.map((r) => (
                 <li key={r.slug} className="py-3 border-b border-[#eaecf0]">
                   <Link
-                    href={`/wiki/${r.slug}`}
+                    href={`/wiki/${encodeURIComponent(r.slug)}`}
                     className="text-[18px] text-[#3366cc] hover:underline"
                     style={{ fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif" }}
                   >

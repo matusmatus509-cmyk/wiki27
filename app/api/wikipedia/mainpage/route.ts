@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+import { fetchWikipediaResource } from '@/lib/wikipedia-fetch';
 import { NextResponse } from 'next/server';
 
 const WIKI_HEADERS = {
@@ -18,11 +20,11 @@ export const revalidate = 600;
 export async function GET() {
   try {
     const [mainPageResponse, statsResponse] = await Promise.all([
-      fetch(
+      fetchWikipediaResource(
         `https://sk.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent('Hlavná stránka')}&format=json&prop=text&disableeditsection=true&disablelimitreport=1`,
         { headers: WIKI_HEADERS, next: { revalidate: 600 } }
       ),
-      fetch(
+      fetchWikipediaResource(
         'https://sk.wikipedia.org/w/api.php?action=query&meta=siteinfo&siprop=statistics&format=json',
         { headers: WIKI_HEADERS, next: { revalidate: 600 } }
       ),

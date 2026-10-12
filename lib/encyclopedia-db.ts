@@ -807,30 +807,6 @@ export function getForceWordsForLetter(
     }
   }
 
-  // 5) Núdzový fallback — niektoré kombinácie písmeno × pozícia (napr. "á" na
-  // 1. pozícii alebo "q" v strede slova) sa v slovenčine nevyskytujú. Aby force
-  // trik nikdy neskončil bez odkazov, vrátime slová obsahujúce písmeno hocikde.
-  if (result.length === 0) {
-    for (const cat of Object.keys(CATEGORY_INDEX) as ArticleCategory[]) {
-      const byLetter = CATEGORY_INDEX[cat]?.[target] || {};
-      const positions = Object.keys(byLetter)
-        .map(Number)
-        .sort((a, b) => a - b);
-      for (const pos of positions) {
-        for (const w of byLetter[pos] || []) {
-          const key = w.toLowerCase();
-          if (!seen.has(key)) {
-            result.push(w);
-            seen.add(key);
-          }
-          if (result.length >= count) break;
-        }
-        if (result.length >= count) break;
-      }
-      if (result.length >= count) break;
-    }
-  }
-
   // Fisher–Yates shuffle, ale prvú tretinu výsledkov ponecháme z hlavnej kategórie
   // (aby sa relevantné slová zobrazovali skôr ako fallback slová)
   const primaryCount = Math.min(
@@ -2067,7 +2043,7 @@ export function generateForceArticleContent(
   title: string,
   category: ArticleCategory,
   forceWords: string[],
-  options: { introHtml?: string; variant?: number; seed?: string } = {},
+  options: { introHtml?: string; variant?: number; seed?: string; contextualWords?: string[] } = {},
 ): string {
   const variant = ((options.variant ?? 0) % FORCE_ARTICLE_VARIANTS.length + FORCE_ARTICLE_VARIANTS.length) % FORCE_ARTICLE_VARIANTS.length;
   const profile = FORCE_ARTICLE_VARIANTS[variant];
@@ -2130,11 +2106,11 @@ export function generateForceArticleContent(
     Math.max(4, Math.floor(forceWords.length * 0.1)),
     8,
   );
-  const bodyWords = forceWords.slice(
-    0,
-    Math.max(0, forceWords.length - reservedTail),
-  );
-  const tailWords = forceWords.slice(forceWords.length - reservedTail);
+  const bodyWords = options.contextualWords
+    ? forceWords.filter(word => options.contextualWords!.includes(word)).slice(0, Math.max(0, forceWords.length - reservedTail))
+    : forceWords.slice(0, Math.max(0, forceWords.length - reservedTail));
+  const bodySet = new Set(bodyWords);
+  const tailWords = forceWords.filter(word => !bodySet.has(word));
 
   // Naplánujeme distribúciu: každý odsek dostane 0-5 vsuvky.
   // Striedame typ vsuvky (LIST vsunie 3 slová naraz, SINGLE jedno).

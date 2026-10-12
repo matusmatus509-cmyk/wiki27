@@ -1,3 +1,4 @@
+import { fetchWikipediaResource } from '@/lib/wikipedia-fetch';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Wikipedia API to get image for any term
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Try to get image from Wikipedia
-    const response = await fetch(
+    const response = await fetchWikipediaResource(
       `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`,
       {
         headers: {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       // Try English Wikipedia as fallback
-      const enResponse = await fetch(
+      const enResponse = await fetchWikipediaResource(
         `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`,
         {
           headers: {
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
     
     // If no image found in Slovak Wikipedia, try English
     if (!imageUrl) {
-      const enResponse = await fetch(
+      const enResponse = await fetchWikipediaResource(
         `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`,
         {
           headers: {

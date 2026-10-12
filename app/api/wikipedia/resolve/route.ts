@@ -1,3 +1,5 @@
+import titlesSnapshot from '@/data/wikipedia-titles.json';
+import { fetchWikipediaResource } from '@/lib/wikipedia-fetch';
 import { NextRequest, NextResponse } from 'next/server';
 
 const WIKI_HEADERS = { 'User-Agent': 'WikiForce/1.0 (educational Wikipedia API client)' };
@@ -9,7 +11,7 @@ export async function GET(request: NextRequest) {
   if (!requested) return NextResponse.json({ exists: false });
 
   try {
-    const exactResponse = await fetch(
+    const exactResponse = await fetchWikipediaResource(
       `https://sk.wikipedia.org/w/api.php?action=query&format=json&redirects=1&titles=${encodeURIComponent(requested)}`,
       { headers: WIKI_HEADERS, cache: 'no-store' },
     );
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Prefix search resolves casing such as "albert einstein" → "Albert Einstein".
-    const prefixResponse = await fetch(
+    const prefixResponse = await fetchWikipediaResource(
       `https://sk.wikipedia.org/w/api.php?action=query&format=json&generator=prefixsearch&gpssearch=${encodeURIComponent(requested)}&gpsnamespace=0&gpslimit=10`,
       { headers: WIKI_HEADERS, cache: 'no-store' },
     );
@@ -38,6 +40,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ exists: false });
   } catch (error) {
     console.error('Wikipedia title resolve error:', error);
+    const title = titlesSnapshot.titles.find(title => title.toLocaleLowerCase('sk-SK') === requested.toLocaleLowerCase('sk-SK'));
+    if (title) return NextResponse.json({exists:true,title,slug:title.replace(/ /g,'_')});
     return NextResponse.json({ exists: false, error: 'Failed to resolve Wikipedia title' }, { status: 502 });
   }
 }

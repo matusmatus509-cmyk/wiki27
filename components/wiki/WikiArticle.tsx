@@ -2,7 +2,6 @@
 
 import { useWiki } from '@/lib/wiki-context';
 import { 
-  getForceWordsForLetter, 
   detectCategory, 
   generateForceArticleContent
 } from '@/lib/encyclopedia-db';
@@ -34,6 +33,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     { title: string; slug: string; snippet: string }[]
   >([]);
   const [forceLinks, setForceLinks] = useState<string[]>([]);
+  const [contextualLinks, setContextualLinks] = useState<string[]>([]);
   
   // Handle wiki: prefix for Wikipedia articles from search
   const cleanSlug = slug.startsWith('wiki:') ? slug.slice(5) : slug;
@@ -66,17 +66,16 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   // Validate every force candidate against Wikipedia before it can be shown.
   useEffect(() => {
     const controller = new AbortController();
-    if (!config.isForceActive || !currentLetter) {
+    if (!config.isForceActive || !currentLetter || !wikiArticle) {
       setForceLinks([]);
       return () => controller.abort();
     }
 
-    const candidates = getForceWordsForLetter(currentLetter, config.forcePosition, detectedCategory, 50);
     setForceLinks([]);
-    fetch('/api/wikipedia/validate-titles', {
+    fetch(`/api/wikipedia/force?title=${encodeURIComponent(wikiArticle.title)}&letter=${encodeURIComponent(currentLetter)}&position=${config.forcePosition}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titles: candidates }),
+      body: JSON.stringify({ links: wikiArticle.links }),
       signal: controller.signal,
     })
       .then(async (response) => {
@@ -90,27 +89,52 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           title.toLocaleLowerCase('sk-SK') !== actualSlug.toLocaleLowerCase('sk-SK'),
         );
         setForceLinks(verified);
+        setContextualLinks(data.contextualTitles || []);
       })
       .catch((error) => {
         if ((error as Error).name !== 'AbortError') setForceLinks([]);
       });
     return () => controller.abort();
-  }, [config.isForceActive, currentLetter, config.forcePosition, detectedCategory, actualSlug]);
+  }, [config.isForceActive, currentLetter, config.forcePosition, detectedCategory, actualSlug, wikiArticle]);
 
   // Always fetch the real article, retrying temporary upstream failures.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
-    setWikiArticle(null);
+    let cached: WikipediaArticle | null = null;
+    try {
+      const saved = sessionStorage.getItem(`wiki-real-article:${actualSlug.toLocaleLowerCase('sk-SK')}`);
+      if (saved) cached = JSON.parse(saved);
+    } catch { /* Storage may be unavailable. */ }
+    setWikiArticle(cached);
+    if (cached) setIsLoading(false);
     setError(null);
     setNotFoundSuggestions([]);
     const title = actualSlug;
 
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const loadArticle = async () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
           const response = await fetch(`/api/wikipedia/article?title=${encodeURIComponent(title)}`);
-          const data = await response.json();
+          let data = await response.json();
+          let successful = response.ok;
+          if (cancelled) return;
+          if (!successful && response.status !== 404 && !cached) {
+            try {
+              // The reader's own connection is independent of server-side rate limits.
+              const params = new URLSearchParams({action:'query',format:'json',origin:'*',redirects:'1',titles:title,prop:'extracts|pageimages|links',exintro:'1',exsentences:'5',exlimit:'1',piprop:'thumbnail',pithumbsize:'640',pllimit:'500'});
+              const direct = await fetch(`https://sk.wikipedia.org/w/api.php?${params}`, { signal: AbortSignal.timeout(10000) });
+              if (direct.ok) {
+                const original = await direct.json();
+                const page = Object.values(original.query?.pages || {}).find((value: any) => value.pageid && value.ns === 0 && value.extract) as any;
+                if (page) {
+                  data = {title:page.title,content:page.extract,image:page.thumbnail?.source || null,links:(page.links || []).filter((link: any) => link.ns === 0).map((link: any) => link.title),categories:[],wikipediaUrl:`https://sk.wikipedia.org/wiki/${encodeURIComponent(page.title)}`};
+                  successful = true;
+                }
+              }
+            } catch { /* Automatic retry and stored real content remain available. */ }
+          }
           if (cancelled) return;
 
           if (response.status === 404) {
@@ -124,8 +148,17 @@ export function WikiArticle({ slug }: WikiArticleProps) {
             return;
           }
 
-          if (response.ok && !data.error) {
+          if (successful && !data.error) {
             setWikiArticle(data);
+            try {
+              const key = `wiki-real-article:${title.toLocaleLowerCase('sk-SK')}`;
+              const text = JSON.stringify(data);
+              const previous = Object.keys(sessionStorage).filter(key => key.startsWith('wiki-real-article:'));
+              for (let i = 0; i <= previous.length; i++) {
+                try { sessionStorage.setItem(key, text); break; }
+                catch { if (previous[i] && previous[i] !== key) sessionStorage.removeItem(previous[i]); }
+              }
+            } catch { /* Browser storage may be disabled. */ }
             setError(null);
             setIsLoading(false);
             return;
@@ -137,14 +170,15 @@ export function WikiArticle({ slug }: WikiArticleProps) {
       }
 
       if (!cancelled) {
-        setWikiArticle(null);
-        setError('Wikipedia API unavailable');
-        setIsLoading(false);
+        // Preserve a real cached article; otherwise continue loading and retry
+        // automatically without requiring the spectator to refresh the page.
+        if (!cached) setIsLoading(true);
+        retryTimer = setTimeout(loadArticle, 10000);
       }
     };
 
     loadArticle();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; clearTimeout(retryTimer); };
   }, [actualSlug]);
 
 
@@ -172,8 +206,9 @@ export function WikiArticle({ slug }: WikiArticleProps) {
       introHtml: extractWikipediaLead(wikiArticle.content, wikiArticle.image),
       variant: currentLetterIndex,
       seed: `${wikiArticle.title}:${config.forcePosition}:${currentLetter}`,
+      contextualWords: contextualLinks,
     });
-  }, [wikiArticle, config.isForceActive, forceLinks, detectedCategory, currentLetterIndex, config.forcePosition, currentLetter]);
+  }, [wikiArticle, config.isForceActive, forceLinks, detectedCategory, currentLetterIndex, config.forcePosition, currentLetter, contextualLinks]);
 
   const articleContent = useMemo(() => wikiArticle
     ? formatWikipediaArticleContent(wikiArticle.content, wikiArticle.image)
@@ -343,23 +378,6 @@ export function WikiArticle({ slug }: WikiArticleProps) {
             <div className="h-4 bg-[#eaecf0] rounded w-5/6"></div>
           </div>
         </div>
-      </article>
-    );
-  }
-
-  // A temporary upstream error must never be described as a non-existent article.
-  if (error && error !== 'Article not found' && !wikiArticle) {
-    return (
-      <article className="bg-white min-h-screen" style={{ color: '#202122' }}>
-        <div className="px-4 py-4">
-          <h1 className="pb-2 border-b border-[#a2a9b1]" style={{ fontFamily: "'Linux Libertine', Georgia, Times, serif", fontSize: '24px', fontWeight: 'normal' }}>
-            {displayTitle}
-          </h1>
-          <div className="mt-4 border border-[#a2a9b1] bg-[#f8f9fa] p-4 text-[14px] leading-relaxed">
-            Obsah sa momentálne nepodarilo načítať zo slovenskej Wikipédie. Skúste stránku obnoviť.
-          </div>
-        </div>
-        <WikiFooter articleTitle={displayTitle} />
       </article>
     );
   }

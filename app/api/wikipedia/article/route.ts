@@ -1,26 +1,12 @@
+import { fetchWikipediaResource as fetchWikipedia } from '@/lib/wikipedia-fetch';
+import { createHash } from 'node:crypto';
+import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
 
 const WIKI_HEADERS = {
   'User-Agent': 'WikiForce/1.0 (educational project)',
 };
 
-
-async function fetchWikipedia(url: string, init?: RequestInit): Promise<Response> {
-  let lastResponse: Response | null = null;
-  let lastError: unknown = null;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const response = await fetch(url, { ...init, next: { revalidate: 3600 } });
-      if (response.ok || response.status === 429) return response;
-      lastResponse = response;
-    } catch (error) {
-      lastError = error;
-    }
-    if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
-  }
-  if (lastResponse) return lastResponse;
-  throw lastError instanceof Error ? lastError : new Error('Wikipedia API unavailable');
-}
 
 // Odstránime z parse HTML všetko, čo nepatrí do telo článku — šablóny,
 // navigačné boxy, správy o údržbe a ďalšie meta prvky. CSS ich síce aj tak
@@ -49,7 +35,7 @@ function cleanArticleHtml(html: string): string {
 }
 
 // Wikipedia API article content endpoint - fetches REAL HTML content with links
-export async function GET(request: NextRequest) {
+async function loadArticle(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const title = searchParams.get('title');
 
@@ -74,37 +60,10 @@ export async function GET(request: NextRequest) {
     const parseData = await parseResponse.json();
 
     if (parseData.error) {
-      // Článok neexistuje — skúsime nájsť najbližší cez vyhľadávanie
-      // (rovnaké správanie ako „Článok neexistuje, hľadám…" na Wikipédii)
-      try {
-        const searchResponse = await fetchWikipedia(
-          `https://sk.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(title)}&limit=1&namespace=0&format=json`,
-          { headers: WIKI_HEADERS }
-        );
-        if (searchResponse.ok) {
-          const searchData = await searchResponse.json();
-          const suggestion = searchData[1]?.[0];
-          if (suggestion && suggestion.toLowerCase() !== title.toLowerCase()) {
-            const retryResponse = await fetchWikipedia(
-              `https://sk.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(suggestion)}&format=json&prop=text|categories|links&redirects=1&disableeditsection=true&disabletoc=false`,
-              { headers: WIKI_HEADERS }
-            );
-            if (retryResponse.ok) {
-              const retryData = await retryResponse.json();
-              if (!retryData.error) {
-                parseData.parse = retryData.parse;
-                parseData.redirectedFrom = title;
-              }
-            }
-          }
-        }
-      } catch {
-        // Vyhľadávanie zlyhalo — vrátime pôvodnú chybu nižšie
-      }
-
-      if (!parseData.parse) {
+      if (['missingtitle', 'invalidtitle'].includes(parseData.error.code)) {
         return NextResponse.json({ error: 'Article not found' }, { status: 404 });
       }
+      throw new Error(parseData.error.info || 'Wikipedia parse error');
     }
 
     const parsed = parseData.parse;
@@ -115,10 +74,10 @@ export async function GET(request: NextRequest) {
       {
         headers: WIKI_HEADERS,
       }
-    );
+    ).catch(() => null);
 
     let imageUrl = null;
-    if (imageResponse.ok) {
+    if (imageResponse?.ok) {
       const imageData = await imageResponse.json();
       const pages = imageData.query?.pages;
       if (pages) {
@@ -146,7 +105,7 @@ export async function GET(request: NextRequest) {
     const links = (parsed.links || [])
       .filter((link: { ns: number; exists?: string; '*': string }) => link.ns === 0 && link.exists !== undefined)
       .map((link: { '*': string }) => link['*'])
-      .slice(0, 20);
+      .slice(0, 500);
 
     // Extract categories
     const categories = (parsed.categories || [])
@@ -167,4 +126,42 @@ export async function GET(request: NextRequest) {
     console.error('Wikipedia article error:', error);
     return NextResponse.json({ error: 'Wikipedia API is temporarily unavailable' }, { status: 503 });
   }
+}
+
+
+export async function GET(request: NextRequest) {
+  const title = request.nextUrl.searchParams.get('title')?.trim();
+  if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 });
+  const key = createHash('sha256').update(title.toLocaleLowerCase('sk-SK')).digest('hex');
+  const file = `/tmp/wiki27-wikipedia-cache/${key}.json`;
+  try {
+    const info = await stat(file);
+    if (Date.now() - info.mtimeMs < 86400000) {
+      const cached = JSON.parse(await readFile(file, 'utf8'));
+      if (cached.content) return NextResponse.json(cached);
+    }
+  } catch { /* First visit to this article. */ }
+  const response = await loadArticle(request);
+  if (response.ok) {
+    try {
+      const text = await response.clone().text();
+      await mkdir('/tmp/wiki27-wikipedia-cache', { recursive: true });
+      await writeFile(file, text);
+    } catch { /* Read-only serverless filesystems may still use the shared response cache. */ }
+    return response;
+  }
+  try {
+    const cached = JSON.parse(await readFile(file, 'utf8'));
+    if (cached.content) return NextResponse.json(cached);
+  } catch { /* No previously downloaded article. */ }
+  if (response.status === 404) return response;
+  // TextExtracts is a separate, much smaller API operation than action=parse.
+  try {
+    const params = new URLSearchParams({ action:'query',format:'json',redirects:'1',titles:title,prop:'extracts|pageimages|info',exintro:'1',exsentences:'5',exlimit:'1',piprop:'thumbnail',pithumbsize:'640',inprop:'url' });
+    const result = await fetchWikipedia(`https://sk.wikipedia.org/w/api.php?${params}`);
+    const data = await result.json();
+    const page = Object.values(data.query?.pages || {}).find((value: any) => value.pageid && value.ns === 0 && value.extract) as any;
+    if (page) return NextResponse.json({ title:page.title,content:page.extract,image:page.thumbnail?.source || null,links:[],categories:[],wikipediaUrl:page.fullurl || `https://sk.wikipedia.org/wiki/${encodeURIComponent(page.title)}` });
+  } catch { /* Client retains previously loaded real articles and retries automatically. */ }
+  return response;
 }

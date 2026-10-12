@@ -59,3 +59,21 @@ test('repeated rendering is stable and HTML attributes are escaped', () => {
   assert.ok(html.includes('data-force-word="A &quot;quoted&quot; title"'));
   assert.ok(!html.includes('data-force-word="A "quoted"'));
 });
+
+test('only actual contextual targets enter prose; other verified titles stay in see-also', () => {
+  const html = generateForceArticleContent('Bratislava', 'geography', words, {
+    introHtml: lead, contextualWords: ['Slovensko', 'Dunaj'],
+  });
+  const prose = html.split('<h2>Pozri aj</h2>')[0];
+  assert.ok(prose.includes('data-force-word="Slovensko"'));
+  assert.ok(prose.includes('data-force-word="Dunaj"'));
+  assert.ok(!prose.includes('data-force-word="Gitara"'));
+  assert.ok(html.includes('data-force-word="Gitara"'));
+});
+
+test('a rare letter never falls back to the wrong position', () => {
+  const { getForceWordsForLetter } = require(join(output, 'encyclopedia-db.js'));
+  for (const position of [1, 2, 3, 4, 5, 6]) {
+    assert.ok(getForceWordsForLetter('q', position, 'general', 50).every(word => Array.from(word.toLowerCase())[position - 1] === 'q'));
+  }
+});

@@ -1,3 +1,5 @@
+import titlesSnapshot from '@/data/wikipedia-titles.json';
+import { fetchWikipediaResource } from '@/lib/wikipedia-fetch';
 import { NextRequest, NextResponse } from 'next/server';
 
 const WIKI_HEADERS = { 'User-Agent': 'WikiForce/1.0 (educational Wikipedia API client)' };
@@ -11,10 +13,14 @@ export async function POST(request: NextRequest) {
       : [];
     if (!candidates.length) return NextResponse.json({ titles: [] });
 
-    const response = await fetch(
+    const response = await fetchWikipediaResource(
       `https://sk.wikipedia.org/w/api.php?action=query&format=json&redirects=1&titles=${encodeURIComponent(candidates.join('|'))}`,
       { headers: WIKI_HEADERS, cache: 'no-store' },
-    );
+    ).catch(() => null);
+    if (!response) {
+      const requested = new Set(candidates.map((title: string) => title.toLocaleLowerCase('sk-SK')));
+      return NextResponse.json({titles:titlesSnapshot.titles.filter(title => requested.has(title.toLocaleLowerCase('sk-SK')))});
+    }
     if (!response.ok) throw new Error('Wikipedia API error');
     const data = await response.json();
     const pages = Object.values(data.query?.pages || {}) as Array<{ pageid?: number; ns?: number; title?: string; missing?: string; invalid?: string }>;

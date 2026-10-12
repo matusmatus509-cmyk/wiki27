@@ -28,6 +28,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const [realInput, setRealInput] = useState('');
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
@@ -188,6 +189,13 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      setShowSuggestions(true);
+      setActiveSuggestion(index => Math.max(-1, Math.min(suggestions.length - 1, index + (e.key === 'ArrowDown' ? 1 : -1))));
+      return;
+    }
+    if (e.key === 'Escape') { setShowSuggestions(false); setActiveSuggestion(-1); return; }
     if (e.key === 'Enter') {
       e.preventDefault();
       handleSearch();
@@ -205,6 +213,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
     }
     
     setShowSuggestions(true);
+    setActiveSuggestion(-1);
 
     const controller = new AbortController();
     const term = displayValue.trim();
@@ -234,15 +243,14 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
             const rest = realResults.filter((r) => r !== maskExact);
             realResults.splice(0, realResults.length, {
               ...maskExact,
-              excerpt: maskExact.excerpt || `Článok o téme ${maskText}`,
+              excerpt: maskExact.excerpt,
             }, ...rest);
           } else {
-            realResults.unshift({
-              title: maskText,
-              slug: maskText.replace(/ /g, '_'),
-              excerpt: `Článok o téme ${maskText}`,
-              synthetic: true,
-            });
+            const checked = await fetch(`/api/wikipedia/resolve?title=${encodeURIComponent(maskText)}`, { signal: controller.signal });
+            if (checked.ok) {
+              const exact = await checked.json();
+              if (exact.exists) realResults.unshift({ title: exact.title, slug: exact.slug, excerpt: '' });
+            }
           }
 
           if (config.showFeedback && config.forceName && realResults.length >= 2) {
@@ -252,7 +260,8 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         }
 
         setSuggestions(realResults);
-        setShowSuggestions(realResults.length > 0);
+        setActiveSuggestion(-1);
+        setShowSuggestions(true);
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
           setSuggestions([]);
@@ -271,6 +280,10 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const handleSearch = async () => {
     const term = displayValue.trim();
     if (!term) return;
+    if (showSuggestions && activeSuggestion >= 0 && suggestions[activeSuggestion]) {
+      handleSuggestionClick(suggestions[activeSuggestion]);
+      return;
+    }
 
     const isCovertMode =
       mode === 'wait_position' || mode === 'typing_name' || mode === 'typing_filler';
@@ -352,7 +365,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
     setSuggestions([]);
     setShowSuggestions(false);
     
-    router.push(`/wiki/${suggestion.slug}`);
+    router.push(`/wiki/${encodeURIComponent(suggestion.slug)}`);
     onClose?.();
   };
 
@@ -372,6 +385,12 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         <input
           ref={inputRef}
           type="text"
+          role="combobox"
+          aria-label="Hľadať na Wikipédii"
+          aria-expanded={showSuggestions}
+          aria-autocomplete="list"
+          aria-controls="wiki-search-suggestions"
+          aria-activedescendant={activeSuggestion >= 0 ? `wiki-search-suggestion-${activeSuggestion}` : undefined}
           value={realInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -429,20 +448,26 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       </div>
 
       {/* Dropdown suggestions - Minerva Neue mobile style with thumbnails */}
-      {showSuggestions && suggestions.length > 0 && (
+      {showSuggestions && (suggestions.length > 0 || Boolean(displayValue.trim())) && (
         <div 
           className={`${fullPage ? 'fixed left-0 right-0 top-[56px]' : 'absolute top-full left-0 right-0'} bg-white z-50 overflow-auto`}
+          id="wiki-search-suggestions"
+          role="listbox"
           style={{ maxHeight: fullPage ? 'calc(100vh - 56px)' : '400px' }}
         >
           {suggestions.map((suggestion, index) => (
             <button
               key={`${suggestion.slug}-${index}`}
+              id={`wiki-search-suggestion-${index}`}
+              role="option"
+              aria-selected={activeSuggestion === index}
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault();
                 handleSuggestionClick(suggestion);
               }}
-              className="w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3"
+              className={`w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 ${activeSuggestion === index ? 'bg-[#eaf3ff]' : ''}`}
+              onMouseEnter={() => setActiveSuggestion(index)}
               style={{ 
                 borderBottom: index < suggestions.length - 1 ? '1px solid #eaecf0' : 'none',
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
