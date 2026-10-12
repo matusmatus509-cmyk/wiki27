@@ -4,13 +4,12 @@ import { useWiki } from '@/lib/wiki-context';
 import { 
   getForceWordsForLetter, 
   detectCategory, 
-  generateForceArticleContent,
-  type ArticleCategory
+  generateForceArticleContent
 } from '@/lib/encyclopedia-db';
-import Image from 'next/image';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WikiFooter } from './WikiFooter';
+import { extractWikipediaLead } from '@/lib/wikipedia-lead';
 
 interface WikiArticleProps {
   slug: string;
@@ -25,46 +24,6 @@ interface WikipediaArticle {
   wikipediaUrl: string;
 }
 
-// Fetch image from Wikipedia for force articles - tries multiple sources
-async function fetchWikipediaImage(title: string): Promise<string | null> {
-  // Try Slovak Wikipedia first
-  try {
-    const skResponse = await fetch(
-      `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`
-    );
-    if (skResponse.ok) {
-      const data = await skResponse.json();
-      const pages = data.query?.pages;
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        const img = pages[pageId]?.thumbnail?.source;
-        if (img) return img;
-      }
-    }
-  } catch {
-    // Continue to English
-  }
-  
-  // Fallback to English Wikipedia for better image coverage
-  try {
-    const enResponse = await fetch(
-      `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=300&origin=*`
-    );
-    if (enResponse.ok) {
-      const data = await enResponse.json();
-      const pages = data.query?.pages;
-      if (pages) {
-        const pageId = Object.keys(pages)[0];
-        const img = pages[pageId]?.thumbnail?.source;
-        if (img) return img;
-      }
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 export function WikiArticle({ slug }: WikiArticleProps) {
   const router = useRouter();
   const { config, getCurrentLetterIndex, incrementArticleIndex, activateForce, deactivateForce } = useWiki();
@@ -75,7 +34,6 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     { title: string; slug: string; snippet: string }[]
   >([]);
   const [forceLinks, setForceLinks] = useState<string[]>([]);
-  const [forceImage, setForceImage] = useState<string | null>(null);
   
   // Handle wiki: prefix for Wikipedia articles from search
   const cleanSlug = slug.startsWith('wiki:') ? slug.slice(5) : slug;
@@ -128,7 +86,8 @@ export function WikiArticle({ slug }: WikiArticleProps) {
       .then((data) => {
         const expected = currentLetter.toLocaleUpperCase('sk-SK');
         const verified = ((data.titles || []) as string[]).filter((title) =>
-          Array.from(title)[config.forcePosition - 1]?.toLocaleUpperCase('sk-SK') === expected,
+          Array.from(title)[config.forcePosition - 1]?.toLocaleUpperCase('sk-SK') === expected &&
+          title.toLocaleLowerCase('sk-SK') !== actualSlug.toLocaleLowerCase('sk-SK'),
         );
         setForceLinks(verified);
       })
@@ -136,97 +95,13 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         if ((error as Error).name !== 'AbortError') setForceLinks([]);
       });
     return () => controller.abort();
-  }, [config.isForceActive, currentLetter, config.forcePosition, detectedCategory]);
-
-  // ALWAYS fetch image from Wikipedia API for any article (force mode or normal)
-  useEffect(() => {
-    const fetchImage = async () => {
-      // First try the exact title
-      let img = await fetchWikipediaImage(actualSlug);
-      if (!img) {
-        // Try with capitalized first letter
-        const capitalized = actualSlug.charAt(0).toUpperCase() + actualSlug.slice(1);
-        img = await fetchWikipediaImage(capitalized);
-      }
-      if (!img && actualSlug.includes(' ')) {
-        // Try just the first word for compound terms
-        const firstWord = actualSlug.split(' ')[0];
-        img = await fetchWikipediaImage(firstWord);
-      }
-      if (!img) {
-        // Try English translation for common Slovak terms
-        const translations: Record<string, string> = {
-          // Music
-          'gitara': 'guitar', 'klavír': 'piano', 'husle': 'violin',
-          'bubon': 'drum', 'flauta': 'flute', 'trubka': 'trumpet',
-          'saxofón': 'saxophone', 'kontrabas': 'double bass', 'harfa': 'harp',
-          'akordeón': 'accordion', 'harmonika': 'harmonica', 'violončelo': 'cello',
-          'klarinet': 'clarinet', 'hoboj': 'oboe', 'fagot': 'bassoon',
-          'bicie': 'drums', 'xylofón': 'xylophone', 'tamburína': 'tambourine',
-          'opera': 'opera', 'symfónia': 'symphony', 'koncert': 'concert',
-          'jazz': 'jazz', 'rock': 'rock music', 'blues': 'blues',
-          // Sports
-          'futbal': 'football', 'hokej': 'hockey', 'tenis': 'tennis',
-          'basketbal': 'basketball', 'plávanie': 'swimming', 'box': 'boxing',
-          'atletika': 'athletics', 'lyžovanie': 'skiing', 'cyklistika': 'cycling',
-          'volejbal': 'volleyball', 'hádzaná': 'handball', 'golf': 'golf',
-          'šach': 'chess', 'biatlon': 'biathlon', 'gymnastika': 'gymnastics',
-          'karate': 'karate', 'džudo': 'judo', 'surfovanie': 'surfing',
-          'snowboard': 'snowboarding', 'maratón': 'marathon', 'rugby': 'rugby',
-          // Science
-          'fyzika': 'physics', 'chémia': 'chemistry', 'biológia': 'biology',
-          'matematika': 'mathematics', 'astronómia': 'astronomy', 'geológia': 'geology',
-          'ekológia': 'ecology', 'genetika': 'genetics', 'medicína': 'medicine',
-          'psychológia': 'psychology', 'filozofia': 'philosophy', 'sociológia': 'sociology',
-          'atóm': 'atom', 'molekula': 'molecule', 'bunka': 'cell',
-          'evolúcia': 'evolution', 'gravitácia': 'gravitation', 'energia': 'energy',
-          // Geography
-          'slovensko': 'slovakia', 'bratislava': 'bratislava', 'európa': 'europe',
-          'ázia': 'asia', 'afrika': 'africa', 'amerika': 'america',
-          'austrália': 'australia', 'antarktída': 'antarctica', 'oceán': 'ocean',
-          'hora': 'mountain', 'rieka': 'river', 'jazero': 'lake',
-          'more': 'sea', 'ostrov': 'island', 'púšť': 'desert',
-          'les': 'forest', 'sopka': 'volcano', 'vodopád': 'waterfall',
-          'alpy': 'alps', 'himaláje': 'himalayas', 'sahara': 'sahara',
-          'dunaj': 'danube', 'nil': 'nile', 'amazonka': 'amazon river',
-          // History
-          'história': 'history', 'vojna': 'war', 'revolúcia': 'revolution',
-          'ríša': 'empire', 'kráľovstvo': 'kingdom', 'republika': 'republic',
-          'stredovek': 'middle ages', 'renesancia': 'renaissance', 'antika': 'antiquity',
-          'cisár': 'emperor', 'kráľ': 'king', 'kráľovná': 'queen',
-          // Nature
-          'lev': 'lion', 'slon': 'elephant', 'tiger': 'tiger',
-          'medveď': 'bear', 'vlk': 'wolf', 'orol': 'eagle',
-          'delfín': 'dolphin', 'veľryba': 'whale', 'žirafa': 'giraffe',
-          'pes': 'dog', 'mačka': 'cat', 'kôň': 'horse',
-          'motýľ': 'butterfly', 'včela': 'bee', 'mravec': 'ant',
-          'ruža': 'rose', 'tulipán': 'tulip', 'orchidea': 'orchid',
-          'dub': 'oak', 'smrek': 'spruce', 'borovica': 'pine',
-          // Technology
-          'počítač': 'computer', 'internet': 'internet', 'telefón': 'telephone',
-          'robot': 'robot', 'raketa': 'rocket', 'satelit': 'satellite',
-          'automobil': 'automobile', 'lietadlo': 'airplane', 'loď': 'ship',
-          'televízor': 'television', 'rádio': 'radio', 'kamera': 'camera',
-          // Culture
-          'umenie': 'art', 'literatúra': 'literature', 'film': 'film',
-          'divadlo': 'theatre', 'múzeum': 'museum', 'galéria': 'gallery',
-          'tanec': 'dance', 'balet': 'ballet', 'architektúra': 'architecture',
-          'maliarstvo': 'painting', 'sochárstvo': 'sculpture', 'fotografia': 'photography',
-        };
-        const lowerSlug = actualSlug.toLowerCase();
-        if (translations[lowerSlug]) {
-          img = await fetchWikipediaImage(translations[lowerSlug]);
-        }
-      }
-      setForceImage(img);
-    };
-    fetchImage();
-  }, [actualSlug]);
+  }, [config.isForceActive, currentLetter, config.forcePosition, detectedCategory, actualSlug]);
 
   // Always fetch the real article, retrying temporary upstream failures.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
+    setWikiArticle(null);
     setError(null);
     setNotFoundSuggestions([]);
     const title = actualSlug;
@@ -289,6 +164,16 @@ export function WikiArticle({ slug }: WikiArticleProps) {
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
   })();
+
+  const forceContent = useMemo(() => {
+    // Never substitute a made-up opening for an unavailable Wikipedia lead.
+    if (!wikiArticle || !config.isForceActive || forceLinks.length === 0) return null;
+    return generateForceArticleContent(wikiArticle.title, detectedCategory, forceLinks, {
+      introHtml: extractWikipediaLead(wikiArticle.content),
+      variant: currentLetterIndex,
+      seed: `${wikiArticle.title}:${config.forcePosition}:${currentLetter}`,
+    });
+  }, [wikiArticle, config.isForceActive, forceLinks, detectedCategory, currentLetterIndex, config.forcePosition, currentLetter]);
 
   // Synchronizácia s reálnou Wikipédiou: nastavíme rovnaký formát title
   // tagu („Slovensko – Wikipédia") a normalizujeme URL na tvar
@@ -422,20 +307,23 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     
     if (!link) return;
     
-    e.preventDefault();
-    e.stopPropagation();
-    
     // Check if this is a force link
     const forceWord = link.getAttribute('data-force-word');
     if (forceWord) {
+      e.preventDefault();
+      e.stopPropagation();
       handleForceLinkClick(forceWord);
       return;
     }
-    
-    // Normal link - activate force
-    const linkText = link.textContent || '';
-    handleNormalLinkClick(e as unknown as React.MouseEvent<HTMLAnchorElement>, linkText);
-  }, [handleForceLinkClick, handleNormalLinkClick]);
+
+    // Preserve lead anchors and external links; piped Wikipedia links must
+    // navigate by their canonical href rather than their display text.
+    const href = link.getAttribute('href');
+    if (!href?.startsWith('/wiki/')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(href);
+  }, [handleForceLinkClick, router]);
 
   // Show loading state
   if (isLoading) {
@@ -558,118 +446,8 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     );
   }
 
-  // Infobox component - Minerva Neue mobile style s kategorizovanou tabuľkou
-  // (rovnako ako infoboxy na Wikipédii nesú základné údaje o téme)
-  const INFOBOX_ROWS: Record<string, [string, string][]> = {
-    culture: [
-      ['Typ', 'Umelecká forma'],
-      ['Odbor', 'Kultúra a umenie'],
-      ['Obdobie', 'Od antiky po súčasnosť'],
-    ],
-    sport: [
-      ['Typ', 'Športová disciplína'],
-      ['Úroveň', 'Rekreačná aj vrcholová'],
-      ['Súťaže', 'Ligové a pohárové'],
-    ],
-    science: [
-      ['Odbor', 'Prírodné vedy'],
-      ['Metóda', 'Empirický výskum'],
-      ['Charakter', 'Interdisciplinárny'],
-    ],
-    history: [
-      ['Obdobie', 'Historické'],
-      ['Pramene', 'Písomné a hmotné'],
-      ['Význam', 'Celospoločenský'],
-    ],
-    geography: [
-      ['Typ', 'Geografický objekt'],
-      ['Charakter', 'Prírodný aj osídlený'],
-      ['Význam', 'Regionálny aj nadregionálny'],
-    ],
-    person: [
-      ['Povolanie', 'Podľa oblasti pôsobenia'],
-      ['Štát', 'Slovensko'],
-      ['Obdobie', '19. – 21. storočie'],
-    ],
-    technology: [
-      ['Odbor', 'Technika a inovácie'],
-      ['Stav', 'V prevádzke'],
-      ['Vývoj', 'Priebežný'],
-    ],
-    nature: [
-      ['Typ', 'Prírodný objekt'],
-      ['Výskyt', 'Rozsiahly'],
-      ['Ochrana', 'Podľa stupňa ohrozenia'],
-    ],
-    general: [
-      ['Odbor', 'Všeobecný pojem'],
-      ['Súvislosti', 'Viaceré oblasti'],
-      ['Výskum', 'Prebiehajúci'],
-    ],
-  };
-
-  const Infobox = ({ image, title, category }: { image: string | null; title: string; category: string }) => {
-    const rows = INFOBOX_ROWS[category] || INFOBOX_ROWS.general;
-    if (!image) {
-      // Aj bez obrázka zobrazíme minimálny infobox s názvom a tabuľkou
-      return (
-        <div className="float-right ml-3 mb-3 w-[140px] border border-[#c8ccd1] bg-[#f8f9fa]">
-          <div
-            className="text-[12px] font-bold text-center text-[#202122] px-1 py-[4px] bg-[#eaecf0] border-b border-[#c8ccd1]"
-            style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-          >
-            {title}
-          </div>
-          {rows.map(([label, value]) => (
-            <div
-              key={label}
-              className="text-[11px] px-1 py-[3px] border-b border-[#eaecf0] last:border-b-0"
-              style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-            >
-              <span className="text-[#54595d]">{label}: </span>
-              <span className="text-[#202122]">{value}</span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return (
-      <div className="float-right ml-3 mb-3 w-[140px] border border-[#c8ccd1] bg-[#f8f9fa]">
-        <div className="relative w-full aspect-[4/3]">
-          <Image
-            src={image}
-            alt={title}
-            fill
-            className="object-cover"
-            unoptimized
-          />
-        </div>
-        <div
-          className="text-[11px] text-center text-[#202122] p-1 border-t border-[#c8ccd1]"
-          style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-        >
-          {title}
-        </div>
-        {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="text-[11px] px-1 py-[3px] border-t border-[#eaecf0] last:border-b-0"
-            style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-          >
-            <span className="text-[#54595d]">{label}: </span>
-            <span className="text-[#202122]">{value}</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-
-
   // FORCE MODE - Show article with force links integrated into the text
-  if (config.isForceActive && forceLinks.length > 0) {
-    // Generate force article content with force words integrated into natural sentences
-    const forceContent = generateForceArticleContent(displayTitle, detectedCategory, forceLinks);
+  if (config.isForceActive && forceContent) {
     
     return (
       <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
@@ -724,11 +502,9 @@ export function WikiArticle({ slug }: WikiArticleProps) {
             </div>
           </div>
 
-          <Infobox image={wikiArticle?.image || forceImage} title={displayTitle} category={detectedCategory} />
-
-          {/* Generated content with force links in natural sentences */}
+          {/* Original Wikipedia lead and infobox, followed by rotating force sections. */}
           <div 
-            className="wiki-article-content text-[14px] leading-relaxed text-justify"
+            className="wiki-article-content text-[16px] leading-relaxed"
             dangerouslySetInnerHTML={{ __html: forceContent }}
             onClick={handleContentClick}
             style={{ color: '#202122', lineHeight: 1.6 }}
@@ -814,15 +590,13 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           </div>
         </div>
 
-        <div className="text-[14px] leading-relaxed" style={{ color: '#202122', lineHeight: 1.6 }}>
-          {wikiArticle?.image && (
-            <Infobox image={wikiArticle.image} title={displayTitle} category={detectedCategory} />
-          )}
+        <div className="text-[16px] leading-relaxed" style={{ color: '#202122', lineHeight: 1.6 }}>
+
 
           {/* Render Wikipedia content with our link handlers */}
           {wikiArticle?.content ? (
             <div 
-              className="wiki-article-content text-justify"
+              className="wiki-article-content"
               dangerouslySetInnerHTML={{ __html: wikiArticle.content }}
               onClick={(e) => {
                 // Intercept clicks on internal links

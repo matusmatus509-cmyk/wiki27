@@ -1687,6 +1687,10 @@ const PROPER_NOUNS = new Set([
   'ponitrie', 'pohronie', 'záhorie', 'považie', 'liptov', 'spiš', 'gemer', 'turiec', 'kysuce', 'orava', 'zemplín', 'tekov', 'hont', 'novohrad', 'horehronie', 'zambezi', 'ubangi', 'okavango', 'ťan-šan',
   ]);
 
+function escapeArticleHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
+
 function makeForceLink(word: string): string {
   const lowerWord = word.toLowerCase();
   // Vlastné mená si ponechávajú veľké písmeno — rozpoznáme ich buď zo zoznamu,
@@ -1696,8 +1700,8 @@ function makeForceLink(word: string): string {
   const isProper = PROPER_NOUNS.has(lowerWord) || hasInnerCapital;
   const displayWord = isProper ? word : lowerWord;
   return `<a href="/wiki/${encodeURIComponent(
-    lowerWord.replace(/\s+/g, '_'),
-  )}" data-force-word="${displayWord}" class="force-link">${displayWord}</a>`;
+    word.replace(/\s+/g, '_'),
+  )}" data-force-word="${escapeArticleHtml(word)}" class="force-link">${escapeArticleHtml(displayWord)}</a>`;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1705,10 +1709,10 @@ function makeForceLink(word: string): string {
 // ────────────────────────────────────────────────────────────────────────────
 
 // Pomocná funkcia: zamiešať pole (Fisher-Yates)
-function shuffle<T>(arr: T[]): T[] {
+function shuffle<T>(arr: T[], random = Math.random): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -2051,47 +2055,70 @@ const EXTRA_CONTEXT_SENTENCES: Record<ArticleCategory, string[]> = {
 const withTitle = (templates: string[], articleTitle: string): string[] =>
   templates.map((t) => t.split('{TITLE}').join(articleTitle));
 
+export const FORCE_ARTICLE_VARIANTS = [
+  { name: 'Prehľad', sections: [0, 1, 2, 3, 4, 5], paragraphs: 2, listChance: 0.65, extraChance: 0.25 },
+  { name: 'Vývoj', sections: [0, 1, 3, 5], paragraphs: 3, listChance: 0.85, extraChance: 0.5 },
+  { name: 'Charakteristika', sections: [0, 2, 4, 5], paragraphs: 3, listChance: 0.45, extraChance: 0.7 },
+  { name: 'Súvislosti', sections: [0, 1, 2, 4, 5], paragraphs: 2, listChance: 0.75, extraChance: 0.35 },
+  { name: 'Podrobný článok', sections: [0, 1, 2, 3, 4, 5], paragraphs: 3, listChance: 0.55, extraChance: 0.8 },
+] as const;
+
 export function generateForceArticleContent(
   title: string,
   category: ArticleCategory,
   forceWords: string[],
+  options: { introHtml?: string; variant?: number; seed?: string } = {},
 ): string {
+  const variant = ((options.variant ?? 0) % FORCE_ARTICLE_VARIANTS.length + FORCE_ARTICLE_VARIANTS.length) % FORCE_ARTICLE_VARIANTS.length;
+  const profile = FORCE_ARTICLE_VARIANTS[variant];
+  // A page keeps its text across React renders.
+  let state = 2166136261;
+  for (const char of `${options.seed ?? title}:${variant}:${forceWords.join('|')}`) {
+    state = Math.imul(state ^ char.charCodeAt(0), 16777619);
+  }
+  const random = () => {
+    state |= 0;
+    state = (state + 0x6d2b79f5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), 1 | state);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+  const sourceTitle = title;
+  title = escapeArticleHtml(title);
   const structure = ARTICLE_STRUCTURES[category] || ARTICLE_STRUCTURES.general;
   const singleTpls = withTitle(
     shuffle([
       ...(SINGLE_TEMPLATES[category] || SINGLE_TEMPLATES.general),
       ...EXTRA_SINGLE_TEMPLATES[category],
-    ]),
+    ], random),
     title,
   );
   const listTpls = withTitle(
     shuffle([
       ...(LIST_TEMPLATES[category] || LIST_TEMPLATES.general),
       ...EXTRA_LIST_TEMPLATES[category],
-    ]),
+    ], random),
     title,
   );
   const contextSentences = withTitle(
     shuffle([
       ...(CONTEXT_SENTENCES[category] || CONTEXT_SENTENCES.general),
       ...EXTRA_CONTEXT_SENTENCES[category],
-    ]),
+    ], random),
     title,
   );
-  const closingSentences = shuffle(CLOSING_SENTENCES);
+  const closingSentences = shuffle(CLOSING_SENTENCES, random);
 
-  let content = structure.intro(title);
+  let content = options.introHtml ?? structure.intro(title);
   const allSections = structure.sections(title);
-  // Variabilná štruktúra: zachováme logické poradie (úvodné aj záverečné
-  // sekcie), ale stredové sekcie náhodne vynechávame — články sa tak
-  // navzájom líšia a nepôsobia šablónovito.
-  const sections = allSections.filter(
-    (_section, i) =>
-      i < 2 ||
-      i === allSections.length - 1 ||
-      allSections.length <= 4 ||
-      Math.random() < 0.8,
-  );
+  // Five editorial structures, cycled by the session's article index.
+  // Keep each category's own headings and their logical order.
+  const sections = allSections
+    .filter((_section, index) => profile.sections.some((sectionIndex) => sectionIndex === index) || index === allSections.length - 1)
+    .map((section) => ({
+      ...section,
+      paragraphs: section.paragraphs.slice(0, profile.paragraphs),
+    }));
 
   // Spočítame počet odsekov, aby sme vedeli rozdeliť force slová rovnomerne.
   let totalParagraphs = 0;
@@ -2099,6 +2126,7 @@ export function generateForceArticleContent(
 
   // Rezervujeme 4-8 slov pre koncovú sekciu "Pozri aj".
   const reservedTail = Math.min(
+    forceWords.length,
     Math.max(4, Math.floor(forceWords.length * 0.1)),
     8,
   );
@@ -2140,13 +2168,13 @@ export function generateForceArticleContent(
       // Niektoré odseky preskočíme úplne (cca 4% pravdepodobnosť),
       // aby článok pôsobil prirodzene, ale väčšina odsekov obsahuje vsuvku.
       const skipParagraph =
-        target > 0 && wordIdx > 0 && Math.random() < 0.04;
+        target > 0 && wordIdx > 0 && random() < 0.04;
 
       let forceInserted = false;
 
       if (!skipParagraph && target > 0 && wordIdx < bodyWords.length) {
         // Pridáme kontextovú vetu pre prirodzenejší prechod (35% šanca)
-        if (Math.random() < 0.35 && contextIdx < contextSentences.length) {
+        if (random() < 0.35 && contextIdx < contextSentences.length) {
           content += ` ${contextSentences[contextIdx]}`;
           contextIdx++;
         }
@@ -2155,7 +2183,7 @@ export function generateForceArticleContent(
         if (
           target >= 3 &&
           wordIdx + 3 <= bodyWords.length &&
-          Math.random() < 0.78
+          random() < profile.listChance
         ) {
           const tpl = listTpls[listIdx % listTpls.length];
           listIdx++;
@@ -2187,7 +2215,7 @@ export function generateForceArticleContent(
           if (
             target >= 6 &&
             wordIdx + 3 <= bodyWords.length &&
-            Math.random() < 0.6
+            random() < 0.6
           ) {
             const tpl2 = listTpls[listIdx % listTpls.length];
             listIdx++;
@@ -2219,7 +2247,7 @@ export function generateForceArticleContent(
       // Ak sme do odseku vsunuli force slovo, s vysokou pravdepodobnosťou
       // pridáme uzatváraciu vetu bez force slova, aby odsek nekončil
       // monotónnym vzorcom „...aj/i/tiež [SLOVO]."
-      if (forceInserted && Math.random() < 0.78) {
+      if (forceInserted && random() < 0.78) {
         const closing =
           closingSentences[closingIdx % closingSentences.length];
         closingIdx++;
@@ -2231,7 +2259,7 @@ export function generateForceArticleContent(
     }
 
     // Pridáme extra odsek do sekcie pre dlhší článok (65% šanca)
-    if (Math.random() < 0.65 && wordIdx < bodyWords.length && contextIdx < contextSentences.length) {
+    if (random() < profile.extraChance && wordIdx < bodyWords.length && contextIdx < contextSentences.length) {
       content += `<p>${contextSentences[contextIdx]}`;
       contextIdx++;
 
@@ -2239,7 +2267,7 @@ export function generateForceArticleContent(
 
       // Pridáme 3-7 force slov do extra odseku (predtým 2-4)
       const extraWords = Math.min(7, bodyWords.length - wordIdx);
-      if (extraWords >= 3 && Math.random() < 0.75) {
+      if (extraWords >= 3 && random() < 0.75) {
         const tpl = listTpls[listIdx % listTpls.length];
         listIdx++;
         const w1 = makeForceLink(bodyWords[wordIdx]);
@@ -2270,7 +2298,7 @@ export function generateForceArticleContent(
 
       // Aj v extra odseku pridáme uzatváraciu vetu, aby nekončil
       // vzorcom „...aj/i/tiež [SLOVO]."
-      if (extraForceInserted && Math.random() < 0.78) {
+      if (extraForceInserted && random() < 0.78) {
         const closing =
           closingSentences[closingIdx % closingSentences.length];
         closingIdx++;
@@ -2289,36 +2317,17 @@ export function generateForceArticleContent(
 
   // Sekcia "Pozri aj" — zoznam až 16 odkazov pre vyššiu hustotu force slov
   if (finalTail.length > 0) {
-    const tailDisplay = finalTail.slice(0, 16);
     content += `<h2>Pozri aj</h2><ul>`;
-    for (const word of tailDisplay) {
+    for (const word of finalTail) {
       content += `<li>${makeForceLink(word)}</li>`;
     }
     content += `</ul>`;
-
-    // Ak by ešte zostali nezobrazené slová, schováme ich do neviditeľného bloku
-    if (finalTail.length > 16) {
-      const hidden = finalTail.slice(16);
-      content += `<div style="display:none" aria-hidden="true">`;
-      for (const word of hidden) {
-        content += makeForceLink(word);
-      }
-      content += `</div>`;
-    }
   }
-
-  // Referencie
-  content += `<h2>Referencie</h2>`;
-  content += `<ol class="references">`;
-  content += `<li>Encyklopedický slovník, Vydavateľstvo SAV, 2023</li>`;
-  content += `<li>Všeobecná encyklopédia, Encyclopaedia Beliana</li>`;
-  content += `<li>Odborná literatúra a vedecké publikácie</li>`;
-  content += `</ol>`;
 
   // Externé odkazy
   content += `<h2>Externé odkazy</h2><ul>`;
   content += `<li><a href="https://sk.wikipedia.org/wiki/${encodeURIComponent(
-    title,
+    sourceTitle,
   )}" target="_blank" rel="noopener">Článok na Wikipédii</a></li>`;
   content += `</ul>`;
 
