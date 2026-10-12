@@ -9,7 +9,7 @@ import {
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WikiFooter } from './WikiFooter';
-import { extractWikipediaLead } from '@/lib/wikipedia-lead';
+import { extractWikipediaLead, formatWikipediaArticleContent } from '@/lib/wikipedia-lead';
 
 interface WikiArticleProps {
   slug: string;
@@ -169,11 +169,15 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     // Never substitute a made-up opening for an unavailable Wikipedia lead.
     if (!wikiArticle || !config.isForceActive || forceLinks.length === 0) return null;
     return generateForceArticleContent(wikiArticle.title, detectedCategory, forceLinks, {
-      introHtml: extractWikipediaLead(wikiArticle.content),
+      introHtml: extractWikipediaLead(wikiArticle.content, wikiArticle.image),
       variant: currentLetterIndex,
       seed: `${wikiArticle.title}:${config.forcePosition}:${currentLetter}`,
     });
   }, [wikiArticle, config.isForceActive, forceLinks, detectedCategory, currentLetterIndex, config.forcePosition, currentLetter]);
+
+  const articleContent = useMemo(() => wikiArticle
+    ? formatWikipediaArticleContent(wikiArticle.content, wikiArticle.image)
+    : '', [wikiArticle]);
 
   // Synchronizácia s reálnou Wikipédiou: nastavíme rovnaký formát title
   // tagu („Slovensko – Wikipédia") a normalizujeme URL na tvar
@@ -502,7 +506,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
             </div>
           </div>
 
-          {/* Original Wikipedia lead and infobox, followed by rotating force sections. */}
+          {/* Short Wikipedia opening without links and original article photographs. */}
           <div 
             className="wiki-article-content text-[16px] leading-relaxed"
             dangerouslySetInnerHTML={{ __html: forceContent }}
@@ -597,7 +601,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           {wikiArticle?.content ? (
             <div 
               className="wiki-article-content"
-              dangerouslySetInnerHTML={{ __html: wikiArticle.content }}
+              dangerouslySetInnerHTML={{ __html: articleContent }}
               onClick={(e) => {
                 // Intercept clicks on internal links
                 const target = e.target as HTMLElement;

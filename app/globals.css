@@ -378,6 +378,35 @@ a.new {
   margin-bottom: 0;
 }
 
+.wiki-article-content .wiki-real-lead {
+  text-align: left;
+  margin-bottom: 1em;
+}
+
+.wiki-article-content .wiki-lead-image {
+  display: table;
+  max-width: 100%;
+  margin: 1em auto;
+  padding: 3px;
+  border: 1px solid #c8ccd1;
+  background: #f8f9fa;
+}
+
+.wiki-article-content .wiki-lead-image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.wiki-article-content .wiki-lead-image figcaption {
+  display: table-caption;
+  caption-side: bottom;
+  padding: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+  background: #f8f9fa;
+}
+
 /* Section headings in articles */
 .wiki-article-content h2 {
   font-family: 'Linux Libertine', 'Linux Libertine O', Georgia, Times, 'Times New Roman', serif;
