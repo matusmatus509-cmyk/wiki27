@@ -1,8 +1,6 @@
 "use client";
 
 import { use } from 'react';
-import { WikiProvider } from '@/lib/wiki-context';
-import { WikiHeader } from '@/components/wiki/WikiHeader';
 import { WikiArticle } from '@/components/wiki/WikiArticle';
 import { WikiSearchResults } from '@/components/wiki/WikiSearchResults';
 
@@ -30,29 +28,8 @@ export default function WikiArticlePage({
 
   const decoded = decodeSlug(slug);
 
-  // Špeciálne:Hľadanie — stránka výsledkov plného vyhľadávania
   if (SPECIAL_SEARCH.test(decoded)) {
-    return (
-      <WikiProvider>
-        <div className="min-h-screen bg-white flex flex-col">
-          <WikiHeader />
-          <main className="flex-1">
-            <WikiSearchResults initialQuery={q} />
-          </main>
-        </div>
-      </WikiProvider>
-    );
+    return <WikiSearchResults key={q} initialQuery={q} />;
   }
-
-  return (
-    <WikiProvider>
-      <div className="min-h-screen bg-white flex flex-col">
-        <WikiHeader />
-
-        <main className="flex-1">
-          <WikiArticle slug={slug} />
-        </main>
-      </div>
-    </WikiProvider>
-  );
+  return <WikiArticle key={slug} slug={slug} />;
 }

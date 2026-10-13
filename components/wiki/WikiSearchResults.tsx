@@ -38,7 +38,7 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [totalHits, setTotalHits] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(initialQuery));
   const [hasSearched, setHasSearched] = useState(false);
   const [searchError, setSearchError] = useState(false);
   const [spellingSuggestion, setSpellingSuggestion] = useState<string | null>(null);
@@ -51,6 +51,9 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
     searchRequest.current = controller;
     setIsLoading(true);
     setSpellingSuggestion(null);
+    setResults([]);
+    setTotalHits(0);
+    setSearchError(false);
     setHasSearched(true);
     try {
       const res = await fetch(
@@ -73,8 +76,10 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
 
   useEffect(() => {
     if (initialQuery) {
+      setQuery(initialQuery);
       runSearch(initialQuery, 0);
     }
+    return () => searchRequest.current?.abort();
   }, [initialQuery, runSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -84,7 +89,7 @@ export function WikiSearchResults({ initialQuery }: WikiSearchResultsProps) {
   };
 
   return (
-    <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
+    <article className="wiki-search-results bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
       <div className="px-4 py-4">
         <h1
           className="pb-2 border-b border-[#a2a9b1]"

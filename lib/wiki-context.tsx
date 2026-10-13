@@ -30,9 +30,6 @@ export function WikiProvider({ children }: { children: ReactNode }) {
 
   // Load config from localStorage on mount, but URL params take priority
   useEffect(() => {
-    // Mark as hydrated
-    setIsHydrated(true);
-    
     // First check URL params - these override everything (for sharing between devices)
     const urlParams = new URLSearchParams(window.location.search);
     const urlPosition = urlParams.get('p');
@@ -84,6 +81,7 @@ export function WikiProvider({ children }: { children: ReactNode }) {
     }
     
     setConfigState(baseConfig);
+    setIsHydrated(true);
   }, []);
 
   const setConfig = (newConfig: WikiConfig) => {

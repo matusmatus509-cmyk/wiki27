@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { WikiProvider, useWiki } from '@/lib/wiki-context';
+import { useWiki } from '@/lib/wiki-context';
 import { AdminPanel } from '@/components/wiki/AdminPanel';
 import { Eye, EyeOff, Lock } from 'lucide-react';
 
@@ -113,8 +113,6 @@ function AdminGate() {
 
 export default function AdminPage() {
   return (
-    <WikiProvider>
-      <AdminGate />
-    </WikiProvider>
+    <AdminGate />
   );
 }

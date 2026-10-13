@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useId } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWiki } from '@/lib/wiki-context';
 import { ACTIVATION_CODE } from '@/lib/wiki-store';
@@ -26,7 +26,9 @@ interface WikiSearchProps {
 function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const [displayValue, setDisplayValue] = useState('');
   const [realInput, setRealInput] = useState('');
-  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [storedSuggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [resultKey, setResultKey] = useState('');
+  const searchId = useId();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -37,6 +39,9 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   const [mode, setMode] = useState<'normal' | 'typing_code' | 'wait_position' | 'typing_name' | 'typing_filler'>('normal');
   const [covertName, setCovertName] = useState('');
   const [coverTextIndex, setCoverTextIndex] = useState(0);
+
+  const suggestionKey = `${displayValue}:${mode}:${config.forceName}:${config.forcePosition}:${config.showFeedback}`;
+  const suggestions = resultKey === suggestionKey ? storedSuggestions : [];
 
   const updateURL = useCallback((position: number, name: string) => {
     const url = new URL(window.location.href);
@@ -259,6 +264,8 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
           }
         }
 
+        if (controller.signal.aborted) return;
+        setResultKey(suggestionKey);
         setSuggestions(realResults);
         setActiveSuggestion(-1);
         setShowSuggestions(true);
@@ -275,7 +282,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [displayValue, config.showFeedback, config.forceName, config.forcePosition, mode, config.maskText]);
+  }, [suggestionKey, displayValue, config.showFeedback, config.forceName, config.forcePosition, mode, config.maskText]);
 
   const handleSearch = async () => {
     const term = displayValue.trim();
@@ -379,9 +386,10 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   }, [fullPage]);
 
   return (
-    <div className={`relative ${fullPage ? 'w-full' : 'w-full'}`}>
+    <div className={`wiki-search relative w-full ${fullPage ? 'wiki-search-full' : ''}`}>
       <div className="relative">
-        {/* Hidden input for capture */}
+        <svg className="wiki-search-symbol" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+        {/* Input captures both ordinary searches and the existing masked sequence. */}
         <input
           ref={inputRef}
           type="text"
@@ -389,8 +397,8 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
           aria-label="Hľadať na Wikipédii"
           aria-expanded={showSuggestions}
           aria-autocomplete="list"
-          aria-controls="wiki-search-suggestions"
-          aria-activedescendant={activeSuggestion >= 0 ? `wiki-search-suggestion-${activeSuggestion}` : undefined}
+          aria-controls={`${searchId}-suggestions`}
+          aria-activedescendant={activeSuggestion >= 0 ? `${searchId}-suggestion-${activeSuggestion}` : undefined}
           value={realInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -404,9 +412,9 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
             setIsFocused(false);
             setTimeout(() => setShowSuggestions(false), 200);
           }}
-          className="absolute inset-0 w-full h-full z-10 caret-transparent"
+          className="wiki-search-input absolute inset-0 w-full h-full z-10"
           style={{ 
-            color: 'transparent',
+            color: 'transparent', caretColor: '#202122',
             background: 'transparent',
             WebkitTextFillColor: 'transparent'
           }}
@@ -424,7 +432,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         >
           {/* Display text */}
           <div 
-            className="flex-1 text-[16px] pointer-events-none px-3"
+            className="wiki-search-label flex-1 text-[16px] pointer-events-none px-3"
             style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
           >
             <span className={displayValue ? 'text-[#202122]' : 'text-[#72777d]'}>
@@ -437,7 +445,8 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
             <button
               type="button"
               onClick={handleClear}
-              className="flex items-center justify-center w-10 h-full text-[#54595d]"
+              aria-label="Vymazať vyhľadávanie"
+              className="relative z-20 flex items-center justify-center w-10 h-full text-[#54595d]"
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="#72777d">
                 <path d="M10 0a10 10 0 100 20 10 10 0 000-20zm5 13.59L13.59 15 10 11.41 6.41 15 5 13.59 8.59 10 5 6.41 6.41 5 10 8.59 13.59 5 15 6.41 11.41 10 15 13.59z"/>
@@ -447,22 +456,25 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         </div>
       </div>
 
+      <button type="button" className="wiki-search-submit" onClick={handleSearch}>Hľadať</button>
+
       {/* Dropdown suggestions - Minerva Neue mobile style with thumbnails */}
       {showSuggestions && (suggestions.length > 0 || Boolean(displayValue.trim())) && (
         <div 
-          className={`${fullPage ? 'fixed left-0 right-0 top-[56px]' : 'absolute top-full left-0 right-0'} bg-white z-50 overflow-auto`}
-          id="wiki-search-suggestions"
+          className={`${fullPage ? 'fixed left-0 right-0 top-[56px]' : 'absolute top-full left-0 right-0'} wiki-search-dropdown bg-white z-50 overflow-auto`}
+          id={`${searchId}-suggestions`}
           role="listbox"
           style={{ maxHeight: fullPage ? 'calc(100vh - 56px)' : '400px' }}
         >
           {suggestions.map((suggestion, index) => (
             <button
               key={`${suggestion.slug}-${index}`}
-              id={`wiki-search-suggestion-${index}`}
+              id={`${searchId}-suggestion-${index}`}
+              onMouseDown={e => e.preventDefault()}
               role="option"
               aria-selected={activeSuggestion === index}
               type="button"
-              onMouseDown={(e) => {
+              onClick={(e) => {
                 e.preventDefault();
                 handleSuggestionClick(suggestion);
               }}
@@ -516,7 +528,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
           {mode === 'normal' && displayValue.trim() && (
             <button
               type="button"
-              onMouseDown={(e) => {
+              onClick={(e) => {
                 e.preventDefault();
                 resetSearchState();
                 router.push(

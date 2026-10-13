@@ -7,6 +7,8 @@ import { generateForceArticleContent } from '@/lib/encyclopedia-db';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WikiFooter } from './WikiFooter';
+import { WikiLoading } from './WikiLoading';
+import { WikiArticleTabs } from './WikiArticleTabs';
 import { extractWikipediaLead, formatWikipediaArticleContent } from '@/lib/wikipedia-lead';
 
 interface WikiArticleProps {
@@ -24,7 +26,7 @@ interface WikipediaArticle {
 
 export function WikiArticle({ slug }: WikiArticleProps) {
   const router = useRouter();
-  const { config, getCurrentLetterIndex, incrementArticleIndex, activateForce, deactivateForce } = useWiki();
+  const { config, isHydrated, getCurrentLetterIndex, incrementArticleIndex, activateForce, deactivateForce } = useWiki();
   const [wikiArticle, setWikiArticle] = useState<WikipediaArticle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +35,8 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   >([]);
   const [forceLinks, setForceLinks] = useState<string[]>([]);
   const [contextualLinks, setContextualLinks] = useState<string[]>([]);
+  const [forceReadyKey, setForceReadyKey] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   
   // Handle wiki: prefix for Wikipedia articles from search
   const cleanSlug = slug.startsWith('wiki:') ? slug.slice(5) : slug;
@@ -62,16 +66,20 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   // Use Wikipedia categories as well as the title when selecting topics
   const detectedCategory = useMemo(() => detectArticleCategory(wikiArticle?.title ?? actualSlug, wikiArticle?.categories ?? []), [actualSlug, wikiArticle]);
 
+  const forceKey = `${actualSlug}:${currentLetterIndex}:${currentLetter}:${config.forcePosition}`;
+
   // Validate every force candidate against Wikipedia before it can be shown.
   useEffect(() => {
     const controller = new AbortController();
-    if (!config.isForceActive || !currentLetter || !wikiArticle) {
+    if (!isHydrated || isNavigating || !config.isForceActive || !currentLetter || !wikiArticle) {
       setForceLinks([]);
       return () => controller.abort();
     }
 
     setForceLinks([]);
-    fetch(`/api/wikipedia/force?title=${encodeURIComponent(wikiArticle.title)}&letter=${encodeURIComponent(currentLetter)}&position=${config.forcePosition}`, {
+    setForceReadyKey(null);
+    let retryTimer: ReturnType<typeof setTimeout>;
+    const loadForce = () => fetch(`/api/wikipedia/force?title=${encodeURIComponent(wikiArticle.title)}&letter=${encodeURIComponent(currentLetter)}&position=${config.forcePosition}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ links: wikiArticle.links, categories: wikiArticle.categories }),
@@ -87,19 +95,23 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           Array.from(title)[config.forcePosition - 1]?.toLocaleUpperCase('sk-SK') === expected &&
           title.toLocaleLowerCase('sk-SK') !== actualSlug.toLocaleLowerCase('sk-SK'),
         );
+        if (controller.signal.aborted) return;
         setForceLinks(verified);
+        setForceReadyKey(forceKey);
         setContextualLinks(data.contextualTitles || []);
       })
       .catch((error) => {
-        if ((error as Error).name !== 'AbortError') setForceLinks([]);
+        if (!controller.signal.aborted) retryTimer = setTimeout(loadForce, 2000);
       });
-    return () => controller.abort();
-  }, [config.isForceActive, currentLetter, config.forcePosition, detectedCategory, actualSlug, wikiArticle]);
+    loadForce();
+    return () => { controller.abort(); clearTimeout(retryTimer); };
+  }, [isHydrated, isNavigating, forceKey, config.isForceActive, currentLetter, config.forcePosition, detectedCategory, actualSlug, wikiArticle]);
 
   // Always fetch the real article, retrying temporary upstream failures.
   useEffect(() => {
     let cancelled = false;
     setIsLoading(true);
+    setIsNavigating(false);
     let cached: WikipediaArticle | null = null;
     try {
       const saved = sessionStorage.getItem(`wiki-real-article:${actualSlug.toLocaleLowerCase('sk-SK')}`);
@@ -200,14 +212,14 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
   const forceContent = useMemo(() => {
     // Never substitute a made-up opening for an unavailable Wikipedia lead.
-    if (!wikiArticle || !config.isForceActive || forceLinks.length === 0) return null;
+    if (!wikiArticle || !config.isForceActive || forceReadyKey !== forceKey) return null;
     return generateForceArticleContent(wikiArticle.title, detectedCategory, forceLinks, {
       introHtml: extractWikipediaLead(wikiArticle.content, wikiArticle.image),
       variant: currentLetterIndex,
       seed: `${wikiArticle.title}:${config.forcePosition}:${currentLetter}`,
       contextualWords: contextualLinks,
     });
-  }, [wikiArticle, config.isForceActive, forceLinks, detectedCategory, currentLetterIndex, config.forcePosition, currentLetter, contextualLinks]);
+  }, [forceReadyKey, forceKey, wikiArticle, config.isForceActive, forceLinks, detectedCategory, currentLetterIndex, config.forcePosition, currentLetter, contextualLinks]);
 
   const articleContent = useMemo(() => wikiArticle
     ? formatWikipediaArticleContent(wikiArticle.content, wikiArticle.image)
@@ -218,7 +230,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   // /wiki/Article_Name (s podčiarkovníkmi a veľkým prvým písmenom),
   // čo presne zodpovedá vzoru sk.wikipedia.org.
   useEffect(() => {
-    if (!displayTitle) return;
+    if (!isHydrated || !wikiArticle || !displayTitle) return;
     if (typeof document !== 'undefined') {
       document.title = `${displayTitle} – Wikipédia`;
     }
@@ -228,19 +240,22 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         const normalized = displayTitle.trim().replace(/\s+/g, '_');
         const target = `/wiki/${encodeURIComponent(normalized)}`;
         if (window.location.pathname !== target) {
-          window.history.replaceState({}, '', target);
+          const url = new URL(window.location.href);
+          url.pathname = target;
+          window.history.replaceState({}, '', url.toString());
         }
       } catch {
         // Ignorujeme prípadné chyby v starších prehliadačoch.
       }
     }
-  }, [displayTitle]);
+  }, [isHydrated, wikiArticle, displayTitle]);
 
 
 
   // Handle redirect when force is complete
   useEffect(() => {
     if (isComplete && config.isForceActive) {
+      setIsNavigating(true);
       // Deactivate force and redirect to real Wikipedia article for current page
       deactivateForce();
 
@@ -257,17 +272,8 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         // Ignorujeme chyby
       }
       
-      // Agresívne vymazanie histórie pred presmerovaním
-      const historyLength = window.history.length;
-      if (historyLength > 1) {
-        window.history.replaceState({ redirecting: true }, '', '/');
-        window.history.go(1 - historyLength);
-        setTimeout(() => {
-          window.location.replace(realUrl);
-        }, 50);
-      } else {
-        window.location.replace(realUrl);
-      }
+      // Direct replacement avoids showing a previous page during the redirect.
+      window.location.replace(realUrl);
     }
   }, [isComplete, config.isForceActive, deactivateForce, actualSlug]);
 
@@ -275,6 +281,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   const handleNormalLinkClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, linkText: string) => {
     e.preventDefault();
 
+    setIsNavigating(true);
     // Activate force if name is set and not already active
     if (config.forceName && !config.isForceActive) {
       activateForce();
@@ -288,6 +295,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
   // Handle click on a force link
   const handleForceLinkClick = useCallback((word: string) => {
+    setIsNavigating(true);
     if (isLastLetter) {
       // Last letter - redirect to real Wikipedia article for THIS word.
       // Vymažeme všetky záznamy našej aplikácie z histórie prehliadača
@@ -307,24 +315,8 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         // Ignorujeme chyby
       }
       
-      // Agresívne vymazanie histórie:
-      // 1. Prejdeme na úplný začiatok histórie prehliadača
-      // 2. Potom presmerujeme na reálnu Wikipédiu
-      // Toto zabezpečí, že tlačidlo "späť" nevráti používateľa na našu stránku
-      const historyLength = window.history.length;
-      if (historyLength > 1) {
-        // Najprv nahradíme aktuálnu stránku v histórii
-        window.history.replaceState({ redirecting: true }, '', '/');
-        // Prejdeme na začiatok histórie
-        window.history.go(1 - historyLength);
-        // Po krátkom oneskorení presmerujeme
-        setTimeout(() => {
-          window.location.replace(realUrl);
-        }, 50);
-      } else {
-        // Ak je len 1 záznam, priamo presmerujeme
-        window.location.replace(realUrl);
-      }
+      // Direct replacement avoids showing a previous page during the redirect.
+      window.location.replace(realUrl);
       return;
     }
 
@@ -360,25 +352,18 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     if (!href?.startsWith('/wiki/')) return;
     e.preventDefault();
     e.stopPropagation();
-    router.push(href);
+    const destination = new URL(href, window.location.href);
+    if (destination.pathname === window.location.pathname) {
+      if (destination.hash) document.getElementById(decodeURIComponent(destination.hash.slice(1)))?.scrollIntoView();
+      return;
+    }
+    setIsNavigating(true);
+    router.push(destination.pathname + destination.hash);
   }, [handleForceLinkClick, router]);
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <article className="px-4 py-4" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif" }}>
-        <div className="animate-pulse">
-          <div className="h-7 bg-[#eaecf0] rounded w-3/4 mb-2"></div>
-          <div className="h-[1px] bg-[#a2a9b1] mb-2"></div>
-          <div className="h-3 bg-[#eaecf0] rounded w-1/2 mb-6"></div>
-          <div className="space-y-3">
-            <div className="h-4 bg-[#eaecf0] rounded"></div>
-            <div className="h-4 bg-[#eaecf0] rounded"></div>
-            <div className="h-4 bg-[#eaecf0] rounded w-5/6"></div>
-          </div>
-        </div>
-      </article>
-    );
+  // Publish only the final content for this route and force step.
+  if (!isHydrated || isLoading || isNavigating || (config.isForceActive && (isComplete || (currentLetter && forceReadyKey !== forceKey)))) {
+    return <WikiLoading />;
   }
 
   // Článok neexistuje — presná kópia stránky „Neexistuje článok s týmto
@@ -400,6 +385,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           >
             {displayTitle}
           </h1>
+          <WikiArticleTabs title={displayTitle} />
           <p className="text-[#54595d] mt-1" style={{ fontSize: '12px' }}>
             Z Wikipédie, slobodnej encyklopédie
           </p>
@@ -486,6 +472,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           >
             {displayTitle}
           </h1>
+          <WikiArticleTabs title={displayTitle} />
           <p
             className="text-[#54595d] mt-1"
             style={{
@@ -497,7 +484,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           </p>
 
           {/* Article action icons - Minerva Neue style */}
-          <div className="flex items-center justify-between py-2 border-b border-[#eaecf0] mb-4">
+          <div className="wiki-article-actions flex items-center justify-between py-2 border-b border-[#eaecf0] mb-4">
             <button className="flex items-center justify-center w-10 h-10" aria-label="Jazyky">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
                 <path d="M20 18h-1.44a.61.61 0 01-.4-.12.81.81 0 01-.23-.31L17 15h-5l-1 2.54a.77.77 0 01-.22.3.59.59 0 01-.4.14H9l4.55-11.47h1.89zm-3.53-4.31L14.89 9.5a11.62 11.62 0 01-.39-1.24q-.09.37-.19.69l-.19.56-1.58 4.19zm-6.3-1.58a13.43 13.43 0 01-2.91-1.41 11.46 11.46 0 002.81-5.37H12V4H7.31a4 4 0 00-.2-.56C6.87 2.79 6.6 2 6.6 2l-1.47.5s.4.89.6 1.5H0v1.33h2.15A11.23 11.23 0 005 10.7a17.19 17.19 0 01-5 2.1q.56.82.87 1.38a23.28 23.28 0 005.22-2.51 15.64 15.64 0 003.56 1.77zM3.63 5.33h4.91a8.11 8.11 0 01-2.45 4.45 9.11 9.11 0 01-2.46-4.45z"/>
@@ -556,7 +543,6 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   }
 
   // NORMAL MODE - Show real Wikipedia content with clickable links that activate force
-  const normalLinks = wikiArticle?.links || ['História', 'Geografia', 'Kultúra', 'Slovensko', 'Európa', 'Veda', 'Umenie', 'Literatúra'];
 
   return (
     <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
@@ -574,6 +560,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         >
           {displayTitle}
         </h1>
+        <WikiArticleTabs title={displayTitle} />
         <p
           className="text-[#54595d] mt-1"
           style={{
@@ -585,7 +572,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         </p>
 
         {/* Article action icons - Minerva Neue style */}
-        <div className="flex items-center justify-between py-2 border-b border-[#eaecf0] mb-4">
+        <div className="wiki-article-actions flex items-center justify-between py-2 border-b border-[#eaecf0] mb-4">
           <button className="flex items-center justify-center w-10 h-10" aria-label="Jazyky">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
               <path d="M20 18h-1.44a.61.61 0 01-.4-.12.81.81 0 01-.23-.31L17 15h-5l-1 2.54a.77.77 0 01-.22.3.59.59 0 01-.4.14H9l4.55-11.47h1.89zm-3.53-4.31L14.89 9.5a11.62 11.62 0 01-.39-1.24q-.09.37-.19.69l-.19.56-1.58 4.19zm-6.3-1.58a13.43 13.43 0 01-2.91-1.41 11.46 11.46 0 002.81-5.37H12V4H7.31a4 4 0 00-.2-.56C6.87 2.79 6.6 2 6.6 2l-1.47.5s.4.89.6 1.5H0v1.33h2.15A11.23 11.23 0 005 10.7a17.19 17.19 0 01-5 2.1q.56.82.87 1.38a23.28 23.28 0 005.22-2.51 15.64 15.64 0 003.56 1.77zM3.63 5.33h4.91a8.11 8.11 0 01-2.45 4.45 9.11 9.11 0 01-2.46-4.45z"/>
@@ -615,7 +602,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
 
           {/* Render Wikipedia content with our link handlers */}
-          {wikiArticle?.content ? (
+          {(
             <div 
               className="wiki-article-content"
               dangerouslySetInnerHTML={{ __html: articleContent }}
@@ -637,13 +624,19 @@ export function WikiArticle({ slug }: WikiArticleProps) {
                   if (internalHref) {
                     e.preventDefault();
                     e.stopPropagation();
-                    const slug = decodeURIComponent(internalHref.replace(/^\/wiki\//, ''));
+                    const destination = new URL(internalHref, window.location.href);
+                    if (destination.pathname === window.location.pathname) {
+                      if (destination.hash) document.getElementById(decodeURIComponent(destination.hash.slice(1)))?.scrollIntoView();
+                      return;
+                    }
+                    const slug = decodeURIComponent(destination.pathname.replace(/^\/wiki\//, ''));
                     if (slug) {
                       // Aktivuj force aj pri kliku na odkaz v reálnom článku
                       if (config.forceName && !config.isForceActive) {
                         activateForce();
                       }
-                      router.push(`/wiki/${encodeURIComponent(slug)}`);
+                      setIsNavigating(true);
+                      router.push(`/wiki/${encodeURIComponent(slug)}${destination.hash}`);
                     }
                     return;
                   }
@@ -659,59 +652,6 @@ export function WikiArticle({ slug }: WikiArticleProps) {
               }}
               style={{ color: '#202122' }}
             />
-          ) : (
-            <>
-              <p className="text-[#202122] mb-4 text-justify" style={{ lineHeight: 1.6 }}>
-                <strong>{displayTitle}</strong> je dôležitý pojem v rôznych oblastiach ľudského poznania a kultúry. 
-                Tento článok poskytuje základný prehľad o danej téme.
-              </p>
-
-              {/* Section: Prehľad */}
-              <h2 
-                className="mt-6 pb-1 mb-3 border-b border-[#a2a9b1]"
-                style={{ fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif", fontSize: '20px', fontWeight: 'normal', color: '#000000' }}
-              >
-                Prehľad
-              </h2>
-              <p className="mb-4 text-justify" style={{ lineHeight: 1.6 }}>
-                {displayTitle} je dôležitou súčasťou modernej spoločnosti. Má významný vplyv na rôzne oblasti života
-                a je predmetom záujmu odborníkov z mnohých oblastí.
-              </p>
-
-              {/* Section: História */}
-              <h2 
-                className="mt-6 pb-1 mb-3 border-b border-[#a2a9b1]"
-                style={{ fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif", fontSize: '20px', fontWeight: 'normal', color: '#000000' }}
-              >
-                História
-              </h2>
-              <p className="mb-4 text-justify" style={{ lineHeight: 1.6 }}>
-                História tohto pojmu siaha do hlbokej minulosti. Prvé zmienky môžeme nájsť už v starovekých
-                civilizáciách. Postupom času sa význam a chápanie tohto konceptu menili.
-              </p>
-
-              {/* Section: Súvisiace články */}
-              <h2 
-                className="mt-6 pb-1 mb-3 border-b border-[#a2a9b1]"
-                style={{ fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif", fontSize: '20px', fontWeight: 'normal', color: '#000000' }}
-              >
-                Súvisiace články
-              </h2>
-              <ul className="list-disc list-inside ml-2 space-y-1">
-                {normalLinks.map((link, index) => (
-                  <li key={index}>
-                    <a
-                      href={`/wiki/${link.toLowerCase().replace(/\s+/g, '_')}`}
-                      onClick={(e) => handleNormalLinkClick(e, link)}
-                      className="text-[#0645ad]"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </>
           )}
         </div>
 

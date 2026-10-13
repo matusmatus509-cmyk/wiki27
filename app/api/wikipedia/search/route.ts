@@ -24,13 +24,13 @@ export async function GET(request: NextRequest) {
     // The search box on Wikipedia uses prefix search, not full-text CirrusSearch.
     if (suggest) {
       const response = await fetchWikipediaResource(
-        `https://sk.wikipedia.org/w/api.php?action=query&format=json&generator=prefixsearch&gpssearch=${encodeURIComponent(query)}&gpsnamespace=0&gpslimit=10&prop=pageimages%7Cextracts%7Crevisions&piprop=thumbnail&pithumbsize=120&exintro=1&explaintext=1&exsentences=2&exlimit=10&rvprop=timestamp&redirects=1`,
+        `https://sk.wikipedia.org/w/api.php?action=query&format=json&generator=prefixsearch&gpssearch=${encodeURIComponent(query)}&gpsnamespace=0&gpslimit=10&prop=pageimages%7Cpageterms%7Crevisions&wbptterms=description&piprop=thumbnail&pithumbsize=120&exintro=1&explaintext=1&exsentences=2&exlimit=10&rvprop=timestamp&redirects=1`,
         { headers: WIKI_HEADERS, next: { revalidate: 60 } },
       );
       if (!response.ok) throw new Error('Wikipedia autocomplete API error');
       const data = await response.json();
       const pages = Object.values(data.query?.pages || {}) as Array<{
-        pageid: number; ns: number; title: string; index?: number; extract?: string;
+        pageid: number; ns: number; title: string; index?: number; extract?: string; terms?: { description?: string[] };
         thumbnail?: { source: string }; revisions?: Array<{ timestamp?: string }>;
       }>;
       const results = pages
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         .map((page) => ({
           title: page.title,
           slug: page.title.replace(/ /g, '_'),
-          snippet: escapeHtml(page.extract || ''),
+          snippet: escapeHtml(page.terms?.description?.[0] || page.extract || ''),
           wordcount: page.extract ? page.extract.trim().split(/\s+/).length : 0,
           timestamp: page.revisions?.[0]?.timestamp || '',
           thumbnail: page.thumbnail?.source || null,
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     const searchResults = data.query?.search || [];
     const totalHits = data.query?.searchinfo?.totalhits ?? searchResults.length;
-    if (!searchResults.length) return NextResponse.json({ results: [], totalHits: 0, offset });
+    if (!searchResults.length) return NextResponse.json({ results: [], totalHits, offset, suggestion: data.query?.searchinfo?.suggestion || null });
 
     const titles = searchResults.map((result: { title: string }) => result.title).join('|');
     const thumbnails: Record<string, string> = {};

@@ -15,8 +15,8 @@ export function WikiHeader() {
   return (
     <>
       {/* Mobile header - Minerva Neue exact clone */}
-      <header className="z-40 bg-[#eaecf0]" style={{ boxShadow: 'none' }}>
-        <div className="flex items-center justify-between h-[48px] px-4">
+      <header className="wiki-header z-40 bg-[#eaecf0]" style={{ boxShadow: 'none' }}>
+        <div className="wiki-header-inner flex items-center justify-between h-[48px] px-4">
           {/* Left - Hamburger menu */}
           <button 
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -29,7 +29,8 @@ export function WikiHeader() {
           </button>
 
           {/* Center - Wikipedia wordmark */}
-          <Link href="/" className="flex items-center ml-1">
+          <Link href="/" className="wiki-brand flex items-center ml-1">
+            <img className="wiki-globe" src="/wikipedia-logo.svg" width="48" height="48" alt="" />
             <span 
               style={{
                 fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif",
@@ -45,13 +46,14 @@ export function WikiHeader() {
             </span>
           </Link>
 
-          {/* Spacer */}
+          <div className="wiki-desktop-search"><WikiSearch /></div>
           <div className="flex-1"></div>
+          <button className="wiki-desktop-login" onClick={() => setShowLogin(true)}>Prihlásiť sa</button>
 
           {/* Right - Search icon */}
           <button
             onClick={() => setShowSearch(true)}
-            className="flex items-center justify-center w-[44px] h-[44px] -mr-2"
+            className="wiki-mobile-search flex items-center justify-center w-[44px] h-[44px] -mr-2"
             aria-label="Hľadať"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#54595d" strokeWidth="2">
@@ -64,7 +66,7 @@ export function WikiHeader() {
 
       {/* Full-screen search overlay */}
       {showSearch && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div className="wiki-search-overlay fixed inset-0 z-50 bg-white flex flex-col" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
           {/* Search header */}
           <div className="flex items-center h-[56px] px-3 bg-[#eaecf0] flex-shrink-0">
             <button

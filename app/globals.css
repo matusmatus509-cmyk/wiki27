@@ -769,3 +769,84 @@ a.new {
   background: #ffee80;
   padding: 0 1px;
 }
+
+/* A single skin, present in the initial server stylesheet. */
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; }
+.wiki-shell { min-height: 100vh; background: #fff; }
+.wiki-layout { width: 100%; }
+.wiki-main { min-width: 0; }
+.wiki-main > article, .wiki-main > .mw-page { min-height: calc(100vh - 48px); }
+.wiki-main h1 { font-family: 'Linux Libertine', Georgia, 'Times New Roman', serif; }
+.wiki-main .wiki-article-content { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; }
+.wiki-contents, .wiki-desktop-search, .wiki-desktop-login, .wiki-globe { display: none; }
+.wiki-loading { padding: 24px 16px; min-height: 65vh; max-width: 960px; margin: auto; }
+.wiki-loading-title { width: 55%; height: 32px; background: #eaecf0; margin-bottom: 12px; }
+.wiki-loading-rule { height: 1px; background: #a2a9b1; margin-bottom: 14px; }
+.wiki-loading-line { height: 13px; background: #eaecf0; margin: 17px 0; width: 100%; }
+.wiki-loading-line.short { width: 35%; margin-bottom: 38px; }
+.wiki-loading-line.medium { width: 78%; }
+.wiki-search-input { outline: none; border: 0; padding: 0 12px; font: inherit; font-size: 16px; }
+.wiki-search-dropdown { border: 1px solid #a2a9b1; box-shadow: 0 2px 6px #0002; }
+.wiki-search-full .wiki-search-dropdown { border: 0; box-shadow: none; }
+.wiki-search-results form input { min-width: 0; border: 1px solid #a2a9b1; border-radius: 2px; padding: 8px 12px; }
+.wiki-search-results form input:focus { outline: 2px solid #36c; outline-offset: -2px; }
+.wiki-search-results form button { border-radius: 2px; font-weight: 700; }
+.wiki-main h2, .wiki-main h3 { scroll-margin-top: 20px; }
+.wiki-header button:focus-visible, .wiki-contents a:focus-visible { outline: 2px solid #36c; outline-offset: 2px; }
+@media (min-width: 1000px) {
+  .wiki-header { background: #fff !important; }
+  .wiki-header-inner { height: 88px !important; max-width: 1600px; margin: auto; padding: 0 44px !important; gap: 20px; }
+  .wiki-brand { min-width: 190px; gap: 10px; margin-right: 20px; }
+  .wiki-brand > span:last-child { font-size: 29px !important; color: #202122 !important; }
+  .wiki-globe { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; border: 1px solid #a2a9b1; background: radial-gradient(circle at 30% 20%, #fff, #eaecf0); font: 30px Georgia, serif; color: #54595d; }
+  .wiki-desktop-search { display: block; width: min(500px, 42vw); }
+  .wiki-desktop-search .wiki-search > div:first-child > div { height: 34px !important; border-width: 1px !important; }
+  .wiki-desktop-login { display: block; color: #36c; font-size: 14px; white-space: nowrap; }
+  .wiki-mobile-search { display: none; }
+  .wiki-layout { display: grid; grid-template-columns: 180px minmax(0, 960px); gap: 36px; max-width: 1400px; padding: 0 44px; margin: auto; }
+  .wiki-contents { display: flex; flex-direction: column; align-self: start; position: sticky; top: 24px; font-size: 14px; gap: 12px; padding-top: 32px; line-height: 1.5; }
+  .wiki-contents-heading { font-weight: 700; padding-bottom: 10px; border-bottom: 1px solid #eaecf0; color: #202122; }
+  .wiki-contents-start { font-weight: 700; color: #202122; }
+  .wiki-main > article > div, .wiki-main > .mw-page > div { padding-left: 0 !important; padding-right: 0 !important; }
+  .wiki-main h1 { font-size: 32px !important; line-height: 1.35 !important; padding-top: 12px; }
+  .wiki-main .wiki-article-content h2 { font-family: 'Linux Libertine', Georgia, serif; font-size: 24px; font-weight: 400; border-bottom: 1px solid #a2a9b1; padding-bottom: 5px; margin-top: 28px; }
+  .wiki-main .wiki-article-content h3 { font-size: 19px; }
+  .wiki-main .wiki-mainpage-content { padding-top: 20px; }
+  .wiki-loading { padding-left: 0; padding-right: 0; }
+  .wiki-search-dropdown [role=option] { padding: 10px 12px; }
+  .wiki-search-dropdown [role=option] > div:first-child { width: 40px; height: 40px; }
+  .wiki-search-results > div { max-width: 850px !important; margin: 0 !important; }
+  .wiki-admin-shell .wiki-layout { display: block; max-width: 1200px; }
+}
+@media (max-width: 999px) {
+  .wiki-main > article > div { max-width: 720px; margin: auto; }
+  .wiki-main .wiki-article-content h2 { font-size: 21px; }
+}
+.wiki-article-tabs { display: none; }
+@media (min-width: 1000px) {
+  img.wiki-globe { display: block; border: 0; background: none; border-radius: 0; object-fit: contain; }
+  .wiki-article-actions { display: none; }
+  .wiki-article-tabs { display: flex; justify-content: space-between; border-bottom: 1px solid #a2a9b1; font-size: 14px; margin-bottom: 12px; }
+  .wiki-article-tabs > div { display: flex; gap: 20px; }
+  .wiki-article-tabs a, .wiki-article-tabs span { padding: 10px 0; }
+  .wiki-article-tabs .selected { color: #202122; border-bottom: 2px solid #202122; }
+}
+.wiki-search-symbol { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #72777d; pointer-events: none; z-index: 11; }
+.wiki-search-label, .wiki-search-input { padding-left: 38px !important; }
+.wiki-search-submit { display: none; }
+@media (min-width: 1000px) {
+  .wiki-desktop-search .wiki-search > div:first-child { margin-right: 82px; }
+  .wiki-desktop-search .wiki-search-submit { display: block; position: absolute; right: 0; top: 0; height: 34px; padding: 0 12px; border: 1px solid #a2a9b1; background: #f8f9fa; font-size: 14px; font-weight: 700; border-radius: 2px; color: #202122; }
+  .wiki-desktop-search .wiki-search-submit:hover { background: #fff; }
+}
+.wiki-footer { clear: both; font-size: 12px; line-height: 1.6; color: #202122; }
+.wiki-footer-history { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #eaecf0; color: #202122; border-block: 1px solid #c8ccd1; font-size: 14px; }
+.wiki-footer-history span:last-child { margin-left: auto; }
+.wiki-footer-body { padding: 24px 16px; background: #eaecf0; }
+.wiki-footer-body nav { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; }
+.wiki-footer-brands { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 20px; }
+.wiki-footer-brands img { object-fit: contain; }
+@media (min-width: 1000px) {
+  .wiki-footer-history { display: none; }
+  .wiki-footer-body { border-top: 1px solid #a2a9b1; background: #fff; padding: 24px 0; }
+}
