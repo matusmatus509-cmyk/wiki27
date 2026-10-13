@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import titlesSnapshot from '@/data/wikipedia-titles.json';
-import { detectCategory, getForceWordsForLetter, type ArticleCategory } from '@/lib/encyclopedia-db';
+import { getForceWordsForLetter } from '@/lib/encyclopedia-db';
+import { detectArticleCategory, rankForceTitles } from '@/lib/force-title-ranking';
 import { fetchWikipediaResource } from '@/lib/wikipedia-fetch';
 
 const known = new Set(titlesSnapshot.titles);
@@ -20,32 +21,31 @@ export async function POST(request: NextRequest) {
   const title = params.get('title') || '';
   const letter = (params.get('letter') || '').toLocaleLowerCase('sk-SK');
   const position = Number(params.get('position'));
-  if (!letter || position < 1 || position > 6) return NextResponse.json({titles:[]});
-  const category = detectCategory(title);
+  if (Array.from(letter).length !== 1 || !Number.isInteger(position) || position < 1 || position > 6) return NextResponse.json({titles:[]});
   const matches = (word: string) => !word.endsWith('(rozlišovacia stránka)') && word.length <= 100 && Array.from(word.toLocaleLowerCase('sk-SK'))[position - 1] === letter && word.toLocaleLowerCase('sk-SK') !== title.toLocaleLowerCase('sk-SK');
   const body = await request.json().catch(() => ({}));
-  const context = (Array.isArray(body.links) ? body.links : []).filter((word: unknown): word is string => typeof word === 'string' && matches(word));
+  const categories: string[] = (Array.isArray(body.categories) ? body.categories : []).filter((value: unknown): value is string => typeof value === 'string');
+  const category = detectArticleCategory(title, categories);
+  const context: string[] = (Array.isArray(body.links) ? body.links : []).filter((word: unknown): word is string => typeof word === 'string' && matches(word));
   const pool = (index.get(`${position}:${letter}`) || []).filter(matches);
-  const thematic = pool.filter(word => detectCategory(word) === category && category !== 'general');
-  // Prefer actual outbound links, then titles in the same topic category.
-  const base = getForceWordsForLetter(letter,position,category as ArticleCategory,100).filter(matches);
-  const shuffled = (words: string[]) => {
-    const copy = [...words];
-    for (let i = copy.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; }
-    return copy;
-  };
-  const ordered = [...new Set([...context,...shuffled(thematic),...base,...shuffled(pool)])];
-  const unverified = ordered.filter(word => !known.has(word)).slice(0,50);
+  const base = getForceWordsForLetter(letter,position,category,100).filter(matches);
+  const articleLinks: string[] = (Array.isArray(body.links) ? body.links : []).filter((value: unknown): value is string => typeof value === 'string');
+  const ordered = rankForceTitles([...context,...base,...pool], title, articleLinks, categories, base);
+  const unverified = (titlesSnapshot.complete ? context : ordered).filter(word => !known.has(word)).slice(0,50);
+  const contextual = new Set(context);
   const verified = new Set<string>(ordered.filter(word => known.has(word)));
   if (unverified.length) {
     try {
       const result = await fetchWikipediaResource(`https://sk.wikipedia.org/w/api.php?action=query&format=json&redirects=1&titles=${encodeURIComponent(unverified.join('|'))}`);
       const data = await result.json();
+      for (const redirect of [...(data.query?.normalized ?? []), ...(data.query?.redirects ?? [])]) {
+        if (contextual.has(redirect.from)) contextual.add(redirect.to);
+      }
       for (const page of Object.values(data.query?.pages || {}) as {pageid?:number;ns?:number;title?:string;missing?:string;invalid?:string}[]) {
         if (page.pageid && page.ns === 0 && page.title && !('missing' in page) && !('invalid' in page) && matches(page.title)) verified.add(page.title);
       }
     } catch { /* Verified snapshot titles are still usable during an outage. */ }
   }
-  const selected = [...new Set([...ordered.filter(word => verified.has(word)), ...verified])].slice(0,50);
-  return NextResponse.json({titles:selected,contextualTitles:selected.filter(word => context.includes(word))});
+  const selected = rankForceTitles([...verified], title, [...articleLinks, ...contextual], categories, base).slice(0,50);
+  return NextResponse.json({titles:selected,contextualTitles:selected.filter(word => contextual.has(word))});
 }

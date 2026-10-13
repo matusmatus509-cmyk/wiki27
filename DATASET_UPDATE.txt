@@ -1,3 +1,18 @@
-Updated Slovak Wikipedia vocabulary dataset added.
-Dataset cleaned, deduplicated, grammar-fixed and UTF-safe.
-File: data/real-wiki-db.json
+Force slovník používa data/wikipedia-titles.json.
+Zdroj: oficiálne MediaWiki API slovenskej Wikipédie, allpages,
+namespace 0 (články), bez presmerovaní, názvy začínajúce písmenom.
+Názvy sa ukladajú bez úprav. Kompletný prechod: 250 625 názvov.
+Zoznam je deduplikovaný; stav complete a continue zaznamenáva úplnosť prechodu.
+
+Doplnenie celého indexu:
+  node scripts/update-wikipedia-titles.mjs --complete
+Nové načítanie namiesto pokračovania z uloženého bodu:
+  node scripts/update-wikipedia-titles.mjs --refresh
+V cloudovom prostredí s HTTP proxy a Node 24:
+  NODE_USE_ENV_PROXY=1 node scripts/update-wikipedia-titles.mjs --complete
+
+Výber force odkazov uprednostňuje existujúce odkazy pôvodného článku,
+spoločné tematické slová a kategórie. Neznáme názvy sa pred použitím
+samostatne overujú cez API. Overený index je dostupný aj pri výpadku API.
+Najviac 50 vybraných odkazov sa rozdelí do odsekov; Pozri aj má najviac 3.
+Prvý odsek zostáva bez odkazov.

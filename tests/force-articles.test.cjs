@@ -7,7 +7,7 @@ const { execFileSync } = require('node:child_process');
 
 const output = mkdtempSync(join(tmpdir(), 'wiki-force-tests-'));
 execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'),
-  'lib/encyclopedia-db.ts', '--outDir', output, '--module', 'commonjs',
+  'lib/encyclopedia-db.ts', 'lib/force-title-ranking.ts', '--outDir', output, '--module', 'commonjs',
   '--target', 'ES2020', '--skipLibCheck', '--esModuleInterop',
 ], { cwd: join(__dirname, '..') });
 const { generateForceArticleContent, FORCE_ARTICLE_VARIANTS } = require(join(output, 'encyclopedia-db.js'));
@@ -100,6 +100,43 @@ test('links are distributed through body paragraphs and see-also never exceeds t
           assert.ok((body.match(/data-force-word=/g) || []).length >= count - 3);
         }
       }
+    }
+  }
+});
+
+
+test('real links outrank topical vocabulary and unrelated fallback titles', () => {
+  const { rankForceTitles, detectArticleCategory } = require(join(output, 'force-title-ranking.js'));
+  assert.equal(detectArticleCategory('Bratislava', ['Mestá na Slovensku']), 'geography');
+  assert.equal(detectArticleCategory('Mairé', ['Obce v departemente Vienne']), 'geography');
+  assert.equal(detectArticleCategory('Albert Einstein', ['Fyzici', 'Narodenia v roku 1879']), 'person');
+  const ranked = rankForceTitles(
+    ['Gitara', 'Dejiny Bratislavy', 'Dunaj', 'Hlavné mesto'], 'Bratislava',
+    ['Dunaj', 'Bratislavský kraj'], ['Mestá na Slovensku'], ['Gitara'],
+  );
+  assert.equal(ranked[0], 'Dunaj');
+  assert.ok(ranked.indexOf('Dejiny Bratislavy') < ranked.indexOf('Gitara'));
+  assert.ok(ranked.indexOf('Hlavné mesto') < ranked.indexOf('Gitara'));
+  assert.equal(new Set(ranked).size, ranked.length);
+});
+
+
+test('new proper names retain the exact Wikipedia spelling in visible text', () => {
+  const html = generateForceArticleContent('Francúzsko', 'geography', ['Argelliers', 'Mairé'], { introHtml: lead });
+  assert.ok(html.includes('>Argelliers</a>'));
+  assert.ok(html.includes('>Mairé</a>'));
+});
+
+
+test('dollar signs in canonical titles are not interpreted as template replacements', () => {
+  const patterns = ['Joey Bada$$', 'A$&B', "A$'B", 'A$`B', 'A$$B'];
+  const targets = patterns.flatMap(word => Array.from({ length: 10 }, (_, i) => `${word} ${i}`));
+  for (let variant = 0; variant < 5; variant++) {
+    const html = generateForceArticleContent('Hudba', 'culture', targets, { introHtml: lead, variant });
+    for (const word of targets) {
+      const escaped = word.replace(/&/g, '&amp;').replace(/'/g, '&#039;');
+      assert.ok(html.includes(`data-force-word="${escaped}"`));
+      assert.ok(html.includes(`>${escaped}</a>`));
     }
   }
 });

@@ -1,10 +1,9 @@
 "use client";
 
+import { detectArticleCategory } from '@/lib/force-title-ranking';
+
 import { useWiki } from '@/lib/wiki-context';
-import { 
-  detectCategory, 
-  generateForceArticleContent
-} from '@/lib/encyclopedia-db';
+import { generateForceArticleContent } from '@/lib/encyclopedia-db';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WikiFooter } from './WikiFooter';
@@ -60,8 +59,8 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
 
 
-  // Detect category based on article title for smarter link selection
-  const detectedCategory = useMemo(() => detectCategory(actualSlug), [actualSlug]);
+  // Use Wikipedia categories as well as the title when selecting topics
+  const detectedCategory = useMemo(() => detectArticleCategory(wikiArticle?.title ?? actualSlug, wikiArticle?.categories ?? []), [actualSlug, wikiArticle]);
 
   // Validate every force candidate against Wikipedia before it can be shown.
   useEffect(() => {
@@ -75,7 +74,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
     fetch(`/api/wikipedia/force?title=${encodeURIComponent(wikiArticle.title)}&letter=${encodeURIComponent(currentLetter)}&position=${config.forcePosition}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ links: wikiArticle.links }),
+      body: JSON.stringify({ links: wikiArticle.links, categories: wikiArticle.categories }),
       signal: controller.signal,
     })
       .then(async (response) => {

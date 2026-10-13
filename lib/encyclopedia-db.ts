@@ -1627,54 +1627,14 @@ const LIST_TEMPLATES: Record<ArticleCategory, string[]> = {
   ],
 };
 
-// ────────────────────────────────────────────────────────────────────────────
-// VLASTNÉ MENÁ — zachovávajú veľké začiatočné písmeno
-// ────────────────────────────────────────────────────────────────────────────
-
-const PROPER_NOUNS = new Set([
-  // Kontinenty
-  'afrika', 'amerika', 'antarktída', 'arktída', 'ázia', 'austrália', 'európa', 'oceánia',
-  // Krajiny (skrátený zoznam — pre ostatné sa veľkosť písmena zachová automaticky cez kontrolu v geography)
-  'slovensko', 'česko', 'poľsko', 'nemecko', 'rakúsko', 'maďarsko', 'francúzsko',
-  'španielsko', 'taliansko', 'grécko', 'anglicko', 'írsko', 'rusko', 'ukrajina',
-  'fínsko', 'švédsko', 'nórsko', 'dánsko', 'holandsko', 'belgicko', 'portugalsko',
-  'rumunsko', 'bulharsko', 'srbsko', 'chorvátsko', 'slovinsko', 'bosna', 'albánsko',
-  'turecko', 'cyprus', 'malta', 'island', 'japonsko', 'čína', 'india', 'kórea',
-  'thajsko', 'vietnam', 'filipíny', 'indonézia', 'malajzia', 'singapur', 'taiwan',
-  'irán', 'irak', 'sýria', 'libanon', 'izrael', 'jordánsko', 'egypt', 'maroko',
-  'kanada', 'mexiko', 'brazília', 'argentína', 'čile', 'peru', 'kolumbia',
-  'kuba', 'estónsko', 'litva', 'lotyšsko', 'luxembursko', 'švajčiarsko',
-  // Mestá
-  'bratislava', 'košice', 'praha', 'viedeň', 'budapešť', 'varšava', 'berlín', 'mníchov',
-  'paríž', 'londýn', 'madrid', 'barcelona', 'rím', 'miláno', 'atény', 'amsterdam',
-  'brusel', 'moskva', 'kyjev', 'istanbul', 'ankara', 'peking', 'šanghaj', 'tokio',
-  'dublin', 'oslo', 'helsinki', 'štokholm', 'kodaň', 'lisabon', 'káhira', 'belehrad',
-  // Hory, rieky, oceány
-  'sahara', 'amazónia', 'nil', 'dunaj', 'volga', 'mississippi', 'ganga', 'temža',
-  'himaláje', 'alpy', 'karpaty', 'tatry', 'tatra', 'ural', 'andy', 'pyreneje',
-  'tichý oceán', 'atlantik', 'kaspické more', 'baltské more', 'jadran', 'everest',
-  'kilimandžáro', 'balaton', 'rajn',
-
-  // Geografické názvy — automatické doplnenie (krajiny, regióny, mestá,
-  // rieky a pohoria si ponechávajú veľké písmeno aj v strede vety)
-  'balkán', 'karibik', 'patagónia', 'polynézia', 'sibír', 'škandinávia', 'apeniny', 'arabský polostrov', 'atika', 'bavorsko', 'bengálsko', 'benelux', 'borneo', 'bretónsko', 'britské ostrovy', 'burgenland', 'byzantium', 'čiernohorský region', 'dalmácia', 'dordogne', 'durínsko', 'elzas', 'flámsko', 'frízsko', 'galícia', 'grónsko', 'havaj', 'hesensko', 'ibéria', 'indočína', 'jadrán', 'jutsko', 'kalábria', 'katalánsko', 'kaukaz', 'kodaňský región', 'korutánsko', 'kosovo', 'kraňsko', 'krym', 'kurily', 'laponsko', 'lotrínsko', 'lombardia', 'macedónia', 'magnesia', 'mezopotámia', 'molise', 'morava', 'moskovská oblasť', 'normandie', 'núbia', 'okinawa', 'palestína', 'piemonte', 'pomerania', 'provence', 'prusko', 'rýnsko', 'sasko', 'sicília', 'sliezsko', 'stredomorie', 'švábsko', 'tirolsko', 'toskánsko', 'transylvánia', 'turkestan', 'umbria', 'valónia', 'veneto', 'viedenský les', 'vojvodina', 'wales', 'záporožie', 'bielorusko', 'bolívia', 'etiópia', 'gruzínsko', 'kambodža', 'katar', 'kazachstan', 'keňa', 'monako', 'mongolsko', 'nepál', 'nigéria', 'pakistan', 'sudán', 'tunisko', 'uruguay', 'vatikán', 'venezuela', 'afganistan', 'alžírsko', 'andorra', 'angola', 'arménsko', 'azerbajdžan', 'bahamy', 'bahrajn', 'bangladéš', 'barbados', 'belize', 'benin', 'bhután', 'botswana', 'brunei', 'burundi', 'čad', 'dominika', 'dominikánska republika', 'džibutsko', 'ekvádor', 'eritrea', 'fidži', 'gabun', 'gambia', 'ghana', 'grenada', 'guatemala', 'guinea', 'guyana', 'haiti', 'honduras', 'jamajka', 'jemen', 'kapverdy', 'kamerun', 'kirgizsko', 'kiribati', 'komory', 'kongo', 'kostarika', 'kuvajt', 'laos', 'lesotho', 'libéria', 'líbya', 'lichtenštajnsko', 'madagaskar', 'malawi', 'maldivy', 'mali', 'marshallove ostrovy', 'maurícius', 'mauritánia', 'mikronézia', 'moldavsko', 'mozambik', 'mjanmarsko', 'namíbia', 'nauru', 'nikaragua', 'niger', 'omán', 'palau', 'panama', 'paraguay', 'rwanda', 'salvador', 'samoa', 'senegal', 'seychely', 'somálsko', 'stredoafrická republika', 'surinam', 'svazijsko', 'tadžikistan', 'tanzánia', 'togo', 'tonga', 'turkménsko', 'tuvalu', 'uganda', 'uzbekistan', 'vanuatu', 'zambia', 'zimbabwe', 'bagdad', 'bombaj', 'bukurešť', 'damask', 'frankfurt', 'hamburg', 'krakov', 'manila', 'neapol', 'ottawa', 'riga', 'sofia', 'sydney', 'tallinn', 'tirana', 'toronto', 'vilnius', 'záhreb', 'adelaide', 'akra', 'alžír', 'ammán', 'antverpy', 'astana', 'auckland', 'austin', 'baku', 'baltimore', 'bangalúr', 'bangkok', 'bejrút', 'belém', 'bern', 'birmingham', 'bogotá', 'bologna', 'boston', 'brasília', 'brisbane', 'bukurešť', 'calgary', 'caracas', 'cardiff', 'casablanca', 'čennai', 'chicago', 'colombo', 'dakar', 'dallas', 'denver', 'detroit', 'dubaj', 'düsseldorf', 'edinburgh', 'edmonton', 'florencia', 'fukuoka', 'gdaňsk', 'ženeva', 'göteborg', 'guangzhou', 'haifa', 'halifax', 'hanoi', 'havana', 'hirošima', 'hongkong', 'houston', 'charkov', 'christchurch', 'innsbruck', 'islamabad', 'izmir', 'jakarta', 'jerevan', 'johannesburg', 'kalkata', 'karáči', 'kathmandu', 'kijov', 'kinshasa', 'kyoto', 'lagos', 'lahore', 'leeds', 'leipzig', 'lima', 'liverpool', 'lübeck', 'lyon', 'malmö', 'manchester', 'marseille', 'mekka', 'melbourne', 'memphis', 'miami', 'milwaukee', 'minneapolis', 'minsk', 'montevideo', 'montpellier', 'montreal', 'mumbai', 'nagoja', 'nairobi', 'nantes', 'nice', 'novosibirsk', 'ósaka', 'perth', 'philadelphia', 'phoenix', 'pittsburgh', 'portland', 'porto', 'poznaň', 'puebla', 'quebec', 'quito', 'rabat', 'recife', 'reykjavík', 'rotterdam', 'salvador', 'santiago', 'sarajevo', 'seattle', 'sevilla', 'soul', 'štrasburg', 'stuttgart', 'surabaja', 'tchaj-pej', 'teherán', 'thessaloniki', 'tijuana', 'toulouse', 'tripolis', 'tunis', 'turín', 'valencia', 'vancouver', 'veracruz', 'vladivostok', 'volgograd', 'washington', 'wellington', 'wroclaw', 'zagreb', 'zürich', 'duna', 'gejzír', 'aconcagua', 'amazonka', 'anapurna', 'azorské ostrovy', 'baikal', 'bajkálske jazero', 'barentsovo more', 'bosporský prieliv', 'čierny les', 'čierne more', 'colorado', 'dardanely', 'etna', 'eufrat', 'faerské ostrovy', 'fujisan', 'galapágy', 'gibraltár', 'gobi', 'grónske more', 'havajské ostrovy', 'helgoland', 'hudson', 'indický oceán', 'iguaçu', 'irtyš', 'java', 'jungfrau', 'k2', 'kanárske ostrovy', 'kavkaz', 'kenya', 'kilauea', 'kolorado', 'kongo', 'krakatoa', 'krím', 'ladožské jazero', 'loire', 'mackenzie', 'madeira', 'malorka', 'maldive', 'maňa', 'matterhorn', 'mekong', 'murray', 'namib', 'niagarské vodopády', 'níger', 'nílska delta', 'ob', 'orinoco', 'panamský prieplav', 'patagonský ľadovec', 'perzský záliv', 'popocatépetl', 'rhône', 'rysy', 'seina', 'severnomorský prieliv', 'severný pól', 'sinai', 'stredozemné more', 'suezský prieplav', 'sumatra', 'sundské ostrovy', 'tanganika', 'tiber', 'tibetská náhorná plošina', 'tigris', 'transandinská cesta', 'tunguzka', 'veľké jazerá', 'veľké soľné jazero', 'vesuvius', 'vihorlat', 'yukon', 'zambezi', 'zelený mys', 'zemplín',
-  
-  // Slovenské regióny z rozširujúcich zoznamov
-  'ponitrie', 'pohronie', 'záhorie', 'považie', 'liptov', 'spiš', 'gemer', 'turiec', 'kysuce', 'orava', 'zemplín', 'tekov', 'hont', 'novohrad', 'horehronie', 'zambezi', 'ubangi', 'okavango', 'ťan-šan',
-  ]);
-
 function escapeArticleHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 function makeForceLink(word: string): string {
-  const lowerWord = word.toLowerCase();
-  // Vlastné mená si ponechávajú veľké písmeno — rozpoznáme ich buď zo zoznamu,
-  // alebo podľa vnútorného veľkého písmena (viacslovné názvy ako „Veľká Fatra"
-  // či „Dolné Rakúsko" by inak degradovali na „veľká fatra").
-  const hasInnerCapital = word.slice(1) !== word.slice(1).toLowerCase();
-  const isProper = PROPER_NOUNS.has(lowerWord) || hasInnerCapital;
-  const displayWord = isProper ? word : lowerWord;
+  // Odkaz označuje názov samostatného hesla, preto zachová jeho presný zápis.
+  // Nové vlastné mená nesmú závisieť od neúplného ručného zoznamu mien.
+  const displayWord = word;
   return `<a href="/wiki/${encodeURIComponent(
     word.replace(/\s+/g, '_'),
   )}" data-force-word="${escapeArticleHtml(word)}" class="force-link">${escapeArticleHtml(displayWord)}</a>`;
@@ -2062,20 +2022,23 @@ export function generateForceArticleContent(
   const sourceTitle = title;
   title = escapeArticleHtml(title);
   const structure = ARTICLE_STRUCTURES[category] || ARTICLE_STRUCTURES.general;
-  const singleTpls = withTitle(
-    shuffle([
-      ...(SINGLE_TEMPLATES[category] || SINGLE_TEMPLATES.general),
-      ...EXTRA_SINGLE_TEMPLATES[category],
-    ], random),
-    title,
-  );
-  const listTpls = withTitle(
-    shuffle([
-      ...(LIST_TEMPLATES[category] || LIST_TEMPLATES.general),
-      ...EXTRA_LIST_TEMPLATES[category],
-    ], random),
-    title,
-  );
+  // Názov hesla zostáva v nominatíve. Nevymýšľame citácie ani konkrétne
+  // historické väzby iba preto, aby sme do odseku vložili ďalší odkaz.
+  const singleTpls = shuffle([
+    'Podrobnejšie je spracované aj heslo {WORD}.',
+    'Samostatný prehľad poskytuje článok {WORD}.',
+    'Ďalšie informácie obsahuje heslo {WORD}.',
+    'Doplňujúci pohľad ponúka článok {WORD}.',
+    'Samostatne je spracované aj heslo {WORD}.',
+    'Pri ďalšom čítaní možno pokračovať heslom {WORD}.',
+    'Rozšírený výklad ponúka samostatný článok {WORD}.',
+  ], random);
+  const listTpls = shuffle([
+    'Ďalšie informácie ponúkajú heslá {W1}, {W2} a {W3}.',
+    'Samostatne sú spracované aj heslá {W1}, {W2} a {W3}.',
+    'Doplňujúce prehľady obsahujú články {W1}, {W2} a {W3}.',
+    'Pri ďalšom čítaní možno pokračovať heslami {W1}, {W2} a {W3}.',
+  ], random);
   const contextSentences = withTitle(
     shuffle([
       ...(CONTEXT_SENTENCES[category] || CONTEXT_SENTENCES.general),
@@ -2139,14 +2102,11 @@ export function generateForceArticleContent(
       // ale aby žiaden odsek nebol nečitateľne preplnený.
       target = Math.min(10, target);
 
-      // Niektoré odseky preskočíme úplne (cca 4% pravdepodobnosť),
-      // aby článok pôsobil prirodzene, ale väčšina odsekov obsahuje vsuvku.
-      const skipParagraph =
-        target > 0 && wordIdx > 0 && random() < 0.04;
-
+      // Odkazy rozdeľujeme priebežne, aby sa krátky zoznam nehromadil
+      // v prvých odsekoch.
       let forceInserted = false;
 
-      if (!skipParagraph && target > 0 && wordIdx < bodyWords.length) {
+      if (target > 0 && wordIdx < bodyWords.length) {
         // Pridáme kontextovú vetu pre prirodzenejší prechod (35% šanca)
         if (random() < 0.35 && contextIdx < contextSentences.length) {
           content += ` ${contextSentences[contextIdx]}`;
@@ -2165,9 +2125,9 @@ export function generateForceArticleContent(
           const w2 = makeForceLink(bodyWords[wordIdx + 1]);
           const w3 = makeForceLink(bodyWords[wordIdx + 2]);
           const sentence = tpl
-            .replace('{W1}', w1)
-            .replace('{W2}', w2)
-            .replace('{W3}', w3);
+            .replace('{W1}', () => w1)
+            .replace('{W2}', () => w2)
+            .replace('{W3}', () => w3);
           content += ` ${sentence}`;
           wordIdx += 3;
           forceInserted = true;
@@ -2179,7 +2139,7 @@ export function generateForceArticleContent(
             singleIdx++;
             content += ` ${stpl.replace(
               '{WORD}',
-              makeForceLink(bodyWords[wordIdx]),
+              () => makeForceLink(bodyWords[wordIdx]),
             )}`;
             wordIdx++;
           }
@@ -2197,9 +2157,9 @@ export function generateForceArticleContent(
             const ww2 = makeForceLink(bodyWords[wordIdx + 1]);
             const ww3 = makeForceLink(bodyWords[wordIdx + 2]);
             content += ` ${tpl2
-              .replace('{W1}', ww1)
-              .replace('{W2}', ww2)
-              .replace('{W3}', ww3)}`;
+              .replace('{W1}', () => ww1)
+              .replace('{W2}', () => ww2)
+              .replace('{W3}', () => ww3)}`;
             wordIdx += 3;
           }
         } else {
@@ -2210,7 +2170,7 @@ export function generateForceArticleContent(
             singleIdx++;
             content += ` ${tpl.replace(
               '{WORD}',
-              makeForceLink(bodyWords[wordIdx]),
+              () => makeForceLink(bodyWords[wordIdx]),
             )}`;
             wordIdx++;
             forceInserted = true;
@@ -2240,14 +2200,14 @@ export function generateForceArticleContent(
       let extraForceInserted = false;
 
       // Pridáme 3-7 force slov do extra odseku (predtým 2-4)
-      const extraWords = Math.min(7, bodyWords.length - wordIdx);
+      const extraWords = Math.min(7, wordsPerParagraphTarget(totalParagraphs - paragraphCounter), bodyWords.length - wordIdx);
       if (extraWords >= 3 && random() < 0.75) {
         const tpl = listTpls[listIdx % listTpls.length];
         listIdx++;
         const w1 = makeForceLink(bodyWords[wordIdx]);
         const w2 = makeForceLink(bodyWords[wordIdx + 1]);
         const w3 = makeForceLink(bodyWords[wordIdx + 2]);
-        content += ` ${tpl.replace('{W1}', w1).replace('{W2}', w2).replace('{W3}', w3)}`;
+        content += ` ${tpl.replace('{W1}', () => w1).replace('{W2}', () => w2).replace('{W3}', () => w3)}`;
         wordIdx += 3;
         extraForceInserted = true;
 
@@ -2256,7 +2216,7 @@ export function generateForceArticleContent(
         for (let i = 0; i < more; i++) {
           const stpl = singleTpls[singleIdx % singleTpls.length];
           singleIdx++;
-          content += ` ${stpl.replace('{WORD}', makeForceLink(bodyWords[wordIdx]))}`;
+          content += ` ${stpl.replace('{WORD}', () => makeForceLink(bodyWords[wordIdx]))}`;
           wordIdx++;
         }
       } else if (extraWords > 0) {
@@ -2264,7 +2224,7 @@ export function generateForceArticleContent(
         for (let i = 0; i < single; i++) {
           const tpl = singleTpls[singleIdx % singleTpls.length];
           singleIdx++;
-          content += ` ${tpl.replace('{WORD}', makeForceLink(bodyWords[wordIdx]))}`;
+          content += ` ${tpl.replace('{WORD}', () => makeForceLink(bodyWords[wordIdx]))}`;
           wordIdx++;
           extraForceInserted = true;
         }
@@ -2295,7 +2255,7 @@ export function generateForceArticleContent(
       let additions = '';
       for (let i = paragraphIndex; i < leftover.length; i += paragraphCount) {
         const template = singleTpls[singleIdx++ % singleTpls.length];
-        additions += ` ${template.replace('{WORD}', makeForceLink(leftover[i]))}`;
+        additions += ` ${template.replace('{WORD}', () => makeForceLink(leftover[i]))}`;
       }
       paragraphIndex++;
       return `<p>${paragraph}${additions}</p>`;
