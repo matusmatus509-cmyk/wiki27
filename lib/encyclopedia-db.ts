@@ -2100,17 +2100,15 @@ export function generateForceArticleContent(
   let totalParagraphs = 0;
   for (const s of sections) totalParagraphs += s.paragraphs.length;
 
-  // Rezervujeme 4-8 slov pre koncovú sekciu "Pozri aj".
-  const reservedTail = Math.min(
-    forceWords.length,
-    Math.max(4, Math.floor(forceWords.length * 0.1)),
-    8,
+  // Súvisiace názvy majú prednosť, ale všetky force ciele zostanú dostupné.
+  // Krátke zoznamy patria celé do textu; „Pozri aj“ obsahuje najviac 3 odkazy.
+  const contextual = new Set(options.contextualWords ?? []);
+  const orderedWords = [...new Set(forceWords)].sort(
+    (a, b) => Number(contextual.has(b)) - Number(contextual.has(a)),
   );
-  const bodyWords = options.contextualWords
-    ? forceWords.filter(word => options.contextualWords!.includes(word)).slice(0, Math.max(0, forceWords.length - reservedTail))
-    : forceWords.slice(0, Math.max(0, forceWords.length - reservedTail));
-  const bodySet = new Set(bodyWords);
-  const tailWords = forceWords.filter(word => !bodySet.has(word));
+  const reservedTail = orderedWords.length > 6 ? Math.min(3, Math.floor(orderedWords.length / 10)) : 0;
+  const bodyWords = orderedWords.slice(0, orderedWords.length - reservedTail);
+  const tailWords = orderedWords.slice(bodyWords.length);
 
   // Naplánujeme distribúciu: každý odsek dostane 0-5 vsuvky.
   // Striedame typ vsuvky (LIST vsunie 3 slová naraz, SINGLE jedno).
@@ -2285,16 +2283,28 @@ export function generateForceArticleContent(
     }
   }
 
-  // Ak po spracovaní textu zostali ešte body slová (môže nastať pri preskočených
-  // odsekoch alebo dlhšom zozname), priradíme ich dodatočne na koniec posledných
-  // odsekov pred Pozri aj — pridáme ich do tailWords.
+  // Prípadné zvyšné slová rozdelíme medzi existujúce odseky tela článku.
+  // Nikdy ich nepresúvame do zoznamu „Pozri aj“ ani do úvodu.
   const leftover = bodyWords.slice(wordIdx);
-  const finalTail = [...leftover, ...tailWords];
+  if (leftover.length > 0) {
+    const intro = options.introHtml ?? structure.intro(title);
+    const body = content.slice(intro.length);
+    const paragraphCount = (body.match(/<p>/g) ?? []).length;
+    let paragraphIndex = 0;
+    content = intro + body.replace(/<p>([\s\S]*?)<\/p>/g, (_match, paragraph: string) => {
+      let additions = '';
+      for (let i = paragraphIndex; i < leftover.length; i += paragraphCount) {
+        const template = singleTpls[singleIdx++ % singleTpls.length];
+        additions += ` ${template.replace('{WORD}', makeForceLink(leftover[i]))}`;
+      }
+      paragraphIndex++;
+      return `<p>${paragraph}${additions}</p>`;
+    });
+  }
 
-  // Sekcia "Pozri aj" — zoznam až 16 odkazov pre vyššiu hustotu force slov
-  if (finalTail.length > 0) {
+  if (tailWords.length > 0) {
     content += `<h2>Pozri aj</h2><ul>`;
-    for (const word of finalTail) {
+    for (const word of tailWords) {
       content += `<li>${makeForceLink(word)}</li>`;
     }
     content += `</ul>`;

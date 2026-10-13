@@ -27,15 +27,14 @@ export async function POST(request: NextRequest) {
   const context = (Array.isArray(body.links) ? body.links : []).filter((word: unknown): word is string => typeof word === 'string' && matches(word));
   const pool = (index.get(`${position}:${letter}`) || []).filter(matches);
   const thematic = pool.filter(word => detectCategory(word) === category && category !== 'general');
-  // Actual outbound links from the current article come first. Wider topics
-  // remain available in "Pozri aj" without claiming a relationship in prose.
+  // Prefer actual outbound links, then titles in the same topic category.
   const base = getForceWordsForLetter(letter,position,category as ArticleCategory,100).filter(matches);
   const shuffled = (words: string[]) => {
     const copy = [...words];
     for (let i = copy.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [copy[i], copy[j]] = [copy[j], copy[i]]; }
     return copy;
   };
-  const ordered = [...new Set([...context,...base,...shuffled(thematic),...shuffled(pool)])];
+  const ordered = [...new Set([...context,...shuffled(thematic),...base,...shuffled(pool)])];
   const unverified = ordered.filter(word => !known.has(word)).slice(0,50);
   const verified = new Set<string>(ordered.filter(word => known.has(word)));
   if (unverified.length) {

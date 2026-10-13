@@ -60,14 +60,14 @@ test('repeated rendering is stable and HTML attributes are escaped', () => {
   assert.ok(!html.includes('data-force-word="A "quoted"'));
 });
 
-test('only actual contextual targets enter prose; other verified titles stay in see-also', () => {
+test('contextual priority does not exclude other force targets from prose', () => {
   const html = generateForceArticleContent('Bratislava', 'geography', words, {
     introHtml: lead, contextualWords: ['Slovensko', 'Dunaj'],
   });
   const prose = html.split('<h2>Pozri aj</h2>')[0];
   assert.ok(prose.includes('data-force-word="Slovensko"'));
   assert.ok(prose.includes('data-force-word="Dunaj"'));
-  assert.ok(!prose.includes('data-force-word="Gitara"'));
+  assert.ok(prose.includes('data-force-word="Gitara"'));
   assert.ok(html.includes('data-force-word="Gitara"'));
 });
 
@@ -75,5 +75,31 @@ test('a rare letter never falls back to the wrong position', () => {
   const { getForceWordsForLetter } = require(join(output, 'encyclopedia-db.js'));
   for (const position of [1, 2, 3, 4, 5, 6]) {
     assert.ok(getForceWordsForLetter('q', position, 'general', 50).every(word => Array.from(word.toLowerCase())[position - 1] === 'q'));
+  }
+});
+
+
+test('links are distributed through body paragraphs and see-also never exceeds three', () => {
+  const targets = words.concat(Array.from({ length: 194 }, (_, i) => `Target ${i}`));
+  for (const category of ['geography', 'person', 'culture', 'science', 'history', 'sport', 'technology', 'nature', 'general']) {
+    for (let variant = 0; variant < 5; variant++) {
+      for (const count of [0, 1, 2, 6, 10, 30, 50, 200]) {
+        const selected = targets.slice(0, count);
+        const html = generateForceArticleContent('Bratislava', category, selected, {
+          introHtml: lead, variant, contextualWords: ['Slovensko', 'Dunaj'],
+        });
+        assert.ok(html.startsWith(lead));
+        const [body, tail = ''] = html.split('<h2>Pozri aj</h2>');
+        const tailCount = (tail.match(/data-force-word=/g) || []).length;
+        assert.ok(tailCount <= 3, `${category}/${variant}/${count}: ${tailCount}`);
+        assert.equal((html.match(/data-force-word=/g) || []).length, count);
+        for (const word of selected) assert.ok(html.includes(`data-force-word="${word}"`));
+        if (count >= 10) {
+          const linkedParagraphs = (body.match(/<p>[\s\S]*?<\/p>/g) || []).filter(p => p.includes('data-force-word='));
+          assert.ok(linkedParagraphs.length >= 4, `${category}/${variant}/${count}`);
+          assert.ok((body.match(/data-force-word=/g) || []).length >= count - 3);
+        }
+      }
+    }
   }
 });
