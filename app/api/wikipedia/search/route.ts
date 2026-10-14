@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
   const query = params.get('q')?.trim();
   const offset = Math.max(0, parseInt(params.get('offset') || '0', 10) || 0);
   const suggest = params.get('suggest') === '1';
+  const profile = params.get('profile') || 'default';
+  const allowedNamespaces = new Set(['0', '1', '4', '6', '10', '12', '14']);
+  const advancedNamespaces = (params.get('namespaces') || '0').split('|').filter(value => allowedNamespaces.has(value)).join('|') || '0';
+  const namespace = profile === 'images' ? '6' : profile === 'all' ? '*' : profile === 'advanced' ? advancedNamespaces : '0';
 
   if (!query) return NextResponse.json({ results: [], totalHits: 0, offset });
 
@@ -72,7 +76,7 @@ export async function GET(request: NextRequest) {
 
     // Special:Search remains a genuine full-text Wikipedia search.
     const response = await fetchWikipediaResource(
-      `https://sk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=10&sroffset=${offset}&srprop=snippet%7Cwordcount%7Ctimestamp&srnamespace=0`,
+      `https://sk.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=20&sroffset=${offset}&srprop=snippet%7Cwordcount%7Ctimestamp%7Csize&srinfo=totalhits%7Csuggestion&srnamespace=${encodeURIComponent(namespace)}`,
       { headers: WIKI_HEADERS, cache: 'no-store' },
     );
     if (!response.ok) throw new Error('Wikipedia search API error');
@@ -97,11 +101,12 @@ export async function GET(request: NextRequest) {
       }
     } catch { /* Thumbnails are optional. */ }
 
-    const results = searchResults.map((result: { title: string; snippet: string; wordcount: number; timestamp: string }) => ({
+    const results = searchResults.map((result: { title: string; snippet: string; wordcount: number; size?: number; timestamp: string }) => ({
       title: result.title,
       slug: result.title.replace(/ /g, '_'),
       snippet: cleanSnippet(result.snippet || ''),
       wordcount: result.wordcount || 0,
+      size: result.size || 0,
       timestamp: result.timestamp || '',
       thumbnail: thumbnails[result.title] || null,
     }));

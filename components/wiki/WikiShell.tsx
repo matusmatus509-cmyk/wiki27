@@ -29,11 +29,22 @@ function Contents() {
 export function WikiShell({ children }: {children: ReactNode}) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith('/admin');
-  return <WikiProvider><div className={`wiki-shell ${isAdmin ? 'wiki-admin-shell' : ''}`} id="top">
+  const isHome = pathname === '/';
+  const [textSize, setTextSize] = useState('standard');
+  const [pageWidth, setPageWidth] = useState('standard');
+  const [appearanceOpen, setAppearanceOpen] = useState(true);
+  return <WikiProvider><div className={`wiki-shell wiki-text-${textSize} wiki-width-${pageWidth} ${isAdmin ? 'wiki-admin-shell' : ''} ${isHome ? 'wiki-home-shell' : ''}`} id="top">
     {!isAdmin && <WikiHeader />}
     <div className="wiki-layout">
       {!isAdmin && <Contents />}
       <main className="wiki-main">{children}</main>
+      {!isAdmin && <aside className="wiki-appearance" aria-label="Vzhľad">
+        <div className="wiki-appearance-heading">Vzhľad <button onClick={() => setAppearanceOpen(value => !value)} aria-expanded={appearanceOpen}>{appearanceOpen ? 'skryť' : 'zobraziť'}</button></div>
+        {appearanceOpen && <>
+          <fieldset><legend>Text</legend>{[{ value: 'small', label: 'Malý' }, { value: 'standard', label: 'Štandardný' }, { value: 'large', label: 'Veľký' }].map(item => <label key={item.value}><input type="radio" name="wiki-text-size" value={item.value} checked={textSize === item.value} onChange={() => setTextSize(item.value)} />{item.label}</label>)}</fieldset>
+          <fieldset><legend>Šírka</legend>{[{ value: 'standard', label: 'Štandardná' }, { value: 'wide', label: 'Široká' }].map(item => <label key={item.value}><input type="radio" name="wiki-page-width" value={item.value} checked={pageWidth === item.value} onChange={() => setPageWidth(item.value)} />{item.label}</label>)}</fieldset>
+        </>}
+      </aside>}
     </div>
   </div></WikiProvider>;
 }

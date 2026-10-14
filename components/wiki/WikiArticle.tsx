@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WikiFooter } from './WikiFooter';
 import { WikiLoading } from './WikiLoading';
-import { WikiArticleTabs } from './WikiArticleTabs';
+import { WikiPageHeader } from './WikiPageHeader';
 import { extractWikipediaLead, formatWikipediaArticleContent } from '@/lib/wikipedia-lead';
 
 interface WikiArticleProps {
@@ -23,6 +23,7 @@ interface WikipediaArticle {
   links: string[];
   categories: string[];
   wikipediaUrl: string;
+  lastModified?: string;
 }
 
 export function WikiArticle({ slug }: WikiArticleProps) {
@@ -372,24 +373,9 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   if (error === 'Article not found' && !wikiArticle) {
     const searchUrl = `/wiki/${encodeURIComponent('Špeciálne:Hľadanie')}?q=${encodeURIComponent(displayTitle)}`;
     return (
-      <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
-        <div className="px-4 py-4">
-          <h1
-            className="pb-2 border-b border-[#a2a9b1]"
-            style={{
-              fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif",
-              fontSize: '24px',
-              fontWeight: 'normal',
-              lineHeight: 1.2,
-              color: '#000000',
-            }}
-          >
-            {displayTitle}
-          </h1>
-          <WikiArticleTabs title={displayTitle} />
-          <p className="text-[#54595d] mt-1" style={{ fontSize: '12px' }}>
-            Z Wikipédie, slobodnej encyklopédie
-          </p>
+      <article className="wiki-article-page bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
+        <div className="wiki-page-body">
+          <WikiPageHeader title={displayTitle} actions={false} />
 
           <div className="mt-4 border border-[#a2a9b1] bg-[#f8f9fa] p-4 text-[14px] leading-relaxed">
             <p className="mb-2">
@@ -458,58 +444,9 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   if (config.isForceActive && forceContent) {
     
     return (
-      <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
-        <div className="px-4 py-4">
-          {/* Article title - Minerva Neue style */}
-          <h1
-            className="pb-2 border-b border-[#a2a9b1]"
-            style={{
-              fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif",
-              fontSize: '24px',
-              fontWeight: 'normal',
-              lineHeight: 1.2,
-              color: '#000000',
-            }}
-          >
-            {displayTitle}
-          </h1>
-          <WikiArticleTabs title={displayTitle} />
-          <p
-            className="text-[#54595d] mt-1"
-            style={{
-              fontSize: '12px',
-              fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-            }}
-          >
-            Z Wikipédie, slobodnej encyklopédie
-          </p>
-
-          {/* Article action icons - Minerva Neue style */}
-          <div className="wiki-article-actions flex items-center justify-between py-2 border-b border-[#eaecf0] mb-4">
-            <button className="flex items-center justify-center w-10 h-10" aria-label="Jazyky">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-                <path d="M20 18h-1.44a.61.61 0 01-.4-.12.81.81 0 01-.23-.31L17 15h-5l-1 2.54a.77.77 0 01-.22.3.59.59 0 01-.4.14H9l4.55-11.47h1.89zm-3.53-4.31L14.89 9.5a11.62 11.62 0 01-.39-1.24q-.09.37-.19.69l-.19.56-1.58 4.19zm-6.3-1.58a13.43 13.43 0 01-2.91-1.41 11.46 11.46 0 002.81-5.37H12V4H7.31a4 4 0 00-.2-.56C6.87 2.79 6.6 2 6.6 2l-1.47.5s.4.89.6 1.5H0v1.33h2.15A11.23 11.23 0 005 10.7a17.19 17.19 0 01-5 2.1q.56.82.87 1.38a23.28 23.28 0 005.22-2.51 15.64 15.64 0 003.56 1.77zM3.63 5.33h4.91a8.11 8.11 0 01-2.45 4.45 9.11 9.11 0 01-2.46-4.45z"/>
-              </svg>
-            </button>
-            <div className="flex items-center gap-1">
-              <button className="flex items-center justify-center w-10 h-10" aria-label="Stiahnuť">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-                  <path d="M17 12v5H3v-5H1v5a2 2 0 002 2h14a2 2 0 002-2v-5z"/>
-                  <path d="M10 15l5-5h-3V1H8v9H5z"/>
-                </svg>
-              </button>
-              <button className="flex items-center justify-center w-10 h-10" aria-label="Uložiť">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#54595d" strokeWidth="1.5">
-                  <path d="M10 2l2.39 4.84 5.34.78-3.87 3.77.91 5.32L10 14.27l-4.77 2.51.91-5.32-3.87-3.77 5.34-.78z"/>
-                </svg>
-              </button>
-              <button className="flex items-center justify-center w-10 h-10" aria-label="Upraviť">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-                  <path d="M16.77 8l1.94-2a1 1 0 000-1.41l-3.34-3.3a1 1 0 00-1.41 0L12 3.23zM1 14.25V19h4.75l9.96-9.96-4.75-4.75z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
+      <article className="wiki-article-page bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
+        <div className="wiki-page-body">
+          <WikiPageHeader title={displayTitle} />
 
           {/* Short Wikipedia opening without links and original article photographs. */}
           <div 
@@ -521,14 +458,14 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
           {/* Categories */}
           <div
-            className="mt-8 pt-3 border-t border-[#a2a9b1] text-[13px] clear-both"
+            className="wiki-categories"
             style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
           >
             <span className="text-[#54595d]">Kategórie: </span>
             {(wikiArticle?.categories || ['Všeobecné pojmy']).map(
               (category, index, arr) => (
                 <span key={index}>
-                  <a href="#" className="text-[#0645ad]" style={{ textDecoration: 'none' }}>
+                  <a href={`https://sk.wikipedia.org/wiki/Kategória:${encodeURIComponent(category.replace(/ /g, '_'))}`} className="text-[#0645ad]" style={{ textDecoration: 'none' }}>
                     {category}
                   </a>
                   {index < arr.length - 1 && <span className="text-[#54595d]"> | </span>}
@@ -538,7 +475,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
           </div>
         </div>
         
-        <WikiFooter articleTitle={displayTitle} />
+        <WikiFooter articleTitle={displayTitle} lastModified={wikiArticle?.lastModified} />
       </article>
     );
   }
@@ -546,58 +483,9 @@ export function WikiArticle({ slug }: WikiArticleProps) {
   // NORMAL MODE - Show real Wikipedia content with clickable links that activate force
 
   return (
-    <article className="bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
-      <div className="px-4 py-4">
-        {/* Article title - Minerva Neue style */}
-        <h1
-          className="pb-2 border-b border-[#a2a9b1]"
-          style={{
-            fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif",
-            fontSize: '24px',
-            fontWeight: 'normal',
-            lineHeight: 1.2,
-            color: '#000000',
-          }}
-        >
-          {displayTitle}
-        </h1>
-        <WikiArticleTabs title={displayTitle} />
-        <p
-          className="text-[#54595d] mt-1"
-          style={{
-            fontSize: '12px',
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          }}
-        >
-          Z Wikipédie, slobodnej encyklopédie
-        </p>
-
-        {/* Article action icons - Minerva Neue style */}
-        <div className="wiki-article-actions flex items-center justify-between py-2 border-b border-[#eaecf0] mb-4">
-          <button className="flex items-center justify-center w-10 h-10" aria-label="Jazyky">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-              <path d="M20 18h-1.44a.61.61 0 01-.4-.12.81.81 0 01-.23-.31L17 15h-5l-1 2.54a.77.77 0 01-.22.3.59.59 0 01-.4.14H9l4.55-11.47h1.89zm-3.53-4.31L14.89 9.5a11.62 11.62 0 01-.39-1.24q-.09.37-.19.69l-.19.56-1.58 4.19zm-6.3-1.58a13.43 13.43 0 01-2.91-1.41 11.46 11.46 0 002.81-5.37H12V4H7.31a4 4 0 00-.2-.56C6.87 2.79 6.6 2 6.6 2l-1.47.5s.4.89.6 1.5H0v1.33h2.15A11.23 11.23 0 005 10.7a17.19 17.19 0 01-5 2.1q.56.82.87 1.38a23.28 23.28 0 005.22-2.51 15.64 15.64 0 003.56 1.77zM3.63 5.33h4.91a8.11 8.11 0 01-2.45 4.45 9.11 9.11 0 01-2.46-4.45z"/>
-            </svg>
-          </button>
-          <div className="flex items-center gap-1">
-            <button className="flex items-center justify-center w-10 h-10" aria-label="Stiahnuť">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-                <path d="M17 12v5H3v-5H1v5a2 2 0 002 2h14a2 2 0 002-2v-5z"/>
-                <path d="M10 15l5-5h-3V1H8v9H5z"/>
-              </svg>
-            </button>
-            <button className="flex items-center justify-center w-10 h-10" aria-label="Uložiť">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#54595d" strokeWidth="1.5">
-                <path d="M10 2l2.39 4.84 5.34.78-3.87 3.77.91 5.32L10 14.27l-4.77 2.51.91-5.32-3.87-3.77 5.34-.78z"/>
-              </svg>
-            </button>
-            <button className="flex items-center justify-center w-10 h-10" aria-label="Upraviť">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-                <path d="M16.77 8l1.94-2a1 1 0 000-1.41l-3.34-3.3a1 1 0 00-1.41 0L12 3.23zM1 14.25V19h4.75l9.96-9.96-4.75-4.75z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
+    <article className="wiki-article-page bg-white min-h-screen" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Lato', 'Helvetica', 'Arial', sans-serif", color: '#202122' }}>
+      <div className="wiki-page-body">
+        <WikiPageHeader title={displayTitle} />
 
         <div className="text-[16px] leading-relaxed" style={{ color: '#202122', lineHeight: 1.6 }}>
 
@@ -658,14 +546,14 @@ export function WikiArticle({ slug }: WikiArticleProps) {
 
         {/* Categories */}
         <div
-          className="mt-8 pt-3 border-t border-[#a2a9b1] text-[13px] clear-both"
+          className="wiki-categories"
           style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
         >
           <span className="text-[#54595d]">Kategórie: </span>
           {(wikiArticle?.categories || ['Všeobecné pojmy']).map(
             (category, index, arr) => (
               <span key={index}>
-                <a href="#" className="text-[#0645ad]" style={{ textDecoration: 'none' }}>
+                <a href={`https://sk.wikipedia.org/wiki/Kategória:${encodeURIComponent(category.replace(/ /g, '_'))}`} className="text-[#0645ad]" style={{ textDecoration: 'none' }}>
                   {category}
                 </a>
                 {index < arr.length - 1 && <span className="text-[#54595d]"> | </span>}
@@ -675,7 +563,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
         </div>
       </div>
       
-      <WikiFooter articleTitle={displayTitle} />
+      <WikiFooter articleTitle={displayTitle} lastModified={wikiArticle?.lastModified} />
     </article>
   );
 }

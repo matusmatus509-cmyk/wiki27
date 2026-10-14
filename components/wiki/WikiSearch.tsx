@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useWiki } from '@/lib/wiki-context';
 import { ACTIVATION_CODE } from '@/lib/wiki-store';
 import Image from 'next/image';
+import { WikiIcon } from './WikiIcon';
 
 interface SearchResult {
   title: string;
@@ -42,6 +43,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
 
   const suggestionKey = `${displayValue}:${mode}:${config.forceName}:${config.forcePosition}:${config.showFeedback}`;
   const suggestions = resultKey === suggestionKey ? storedSuggestions : [];
+  const suggestionsLoading = Boolean(displayValue.trim()) && resultKey !== suggestionKey;
 
   const updateURL = useCallback((position: number, name: string) => {
     const url = new URL(window.location.href);
@@ -271,8 +273,9 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         setShowSuggestions(true);
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
+          setResultKey(suggestionKey);
           setSuggestions([]);
-          setShowSuggestions(false);
+          setShowSuggestions(true);
         }
       }
     };
@@ -388,17 +391,17 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
   return (
     <div className={`wiki-search relative w-full ${fullPage ? 'wiki-search-full' : ''}`}>
       <div className="relative">
-        <svg className="wiki-search-symbol" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+        <WikiIcon name="search" className="wiki-search-symbol" />
         {/* Input captures both ordinary searches and the existing masked sequence. */}
         <input
           ref={inputRef}
-          type="text"
+          type="search"
           role="combobox"
           aria-label="Hľadať na Wikipédii"
-          aria-expanded={showSuggestions}
+          aria-expanded={showSuggestions && Boolean(displayValue.trim())}
           aria-autocomplete="list"
           aria-controls={`${searchId}-suggestions`}
-          aria-activedescendant={activeSuggestion >= 0 ? `${searchId}-suggestion-${activeSuggestion}` : undefined}
+          aria-activedescendant={activeSuggestion >= 0 && suggestions[activeSuggestion] ? `${searchId}-suggestion-${activeSuggestion}` : undefined}
           value={realInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -432,7 +435,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
         >
           {/* Display text */}
           <div 
-            className="wiki-search-label flex-1 text-[16px] pointer-events-none px-3"
+            className="wiki-search-label flex-1 text-[16px] pointer-events-none px-3" aria-hidden="true"
             style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
           >
             <span className={displayValue ? 'text-[#202122]' : 'text-[#72777d]'}>
@@ -446,11 +449,9 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
               type="button"
               onClick={handleClear}
               aria-label="Vymazať vyhľadávanie"
-              className="relative z-20 flex items-center justify-center w-10 h-full text-[#54595d]"
+              className="wiki-search-clear relative z-20 flex items-center justify-center w-10 h-full text-[#54595d]"
             >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="#72777d">
-                <path d="M10 0a10 10 0 100 20 10 10 0 000-20zm5 13.59L13.59 15 10 11.41 6.41 15 5 13.59 8.59 10 5 6.41 6.41 5 10 8.59 13.59 5 15 6.41 11.41 10 15 13.59z"/>
-              </svg>
+              <WikiIcon name="close" />
             </button>
           )}
         </div>
@@ -461,11 +462,12 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
       {/* Dropdown suggestions - Minerva Neue mobile style with thumbnails */}
       {showSuggestions && (suggestions.length > 0 || Boolean(displayValue.trim())) && (
         <div 
-          className={`${fullPage ? 'fixed left-0 right-0 top-[56px]' : 'absolute top-full left-0 right-0'} wiki-search-dropdown bg-white z-50 overflow-auto`}
+          className={`${fullPage ? 'fixed left-0 right-0' : 'absolute top-full left-0 right-0'} wiki-search-dropdown bg-white z-50 overflow-auto`}
           id={`${searchId}-suggestions`}
           role="listbox"
-          style={{ maxHeight: fullPage ? 'calc(100vh - 56px)' : '400px' }}
+          style={{ maxHeight: fullPage ? 'calc(100dvh - 54px)' : '400px' }}
         >
+          {suggestionsLoading && <div className="wiki-search-progress" role="status" aria-label="Hľadajú sa návrhy" />}
           {suggestions.map((suggestion, index) => (
             <button
               key={`${suggestion.slug}-${index}`}
@@ -478,7 +480,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
                 e.preventDefault();
                 handleSuggestionClick(suggestion);
               }}
-              className={`w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 ${activeSuggestion === index ? 'bg-[#eaf3ff]' : ''}`}
+              className={`wiki-search-option w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 ${activeSuggestion === index ? 'bg-[#eaf3ff]' : ''}`}
               onMouseEnter={() => setActiveSuggestion(index)}
               style={{ 
                 borderBottom: index < suggestions.length - 1 ? '1px solid #eaecf0' : 'none',
@@ -487,7 +489,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
             >
               {/* Thumbnail */}
               {suggestion.thumbnail ? (
-                <div className="w-[56px] h-[56px] bg-[#f8f9fa] flex-shrink-0 flex items-center justify-center overflow-hidden rounded-sm mr-3">
+                <div className="wiki-suggestion-thumbnail w-[56px] h-[56px] bg-[#f8f9fa] flex-shrink-0 flex items-center justify-center overflow-hidden rounded-sm mr-3">
                   <Image
                     src={suggestion.thumbnail}
                     alt=""
@@ -498,17 +500,15 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
                   />
                 </div>
               ) : (
-                <div className="w-[56px] h-[56px] bg-[#f8f9fa] flex-shrink-0 flex items-center justify-center rounded-sm mr-3">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="#c8ccd1">
-                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5-7l-3 3.72L9 13l-3 4h12l-4-5z"/>
-                  </svg>
+                <div className="wiki-suggestion-thumbnail w-[56px] h-[56px] bg-[#f8f9fa] flex-shrink-0 flex items-center justify-center rounded-sm mr-3">
+                  <WikiIcon name="article" />
                 </div>
               )}
               
               {/* Text content */}
               <div className="flex-1 min-w-0 overflow-hidden">
-                <div className="text-[16px] font-bold text-[#202122] leading-tight truncate">
-                  {suggestion.title}
+                <div className="wiki-suggestion-title text-[16px] text-[#202122] leading-tight truncate">
+                  {suggestion.title.toLocaleLowerCase('sk-SK').startsWith(displayValue.toLocaleLowerCase('sk-SK')) ? <><strong>{suggestion.title.slice(0, displayValue.length)}</strong>{suggestion.title.slice(displayValue.length)}</> : suggestion.title}
                 </div>
                 {suggestion.snippetHtml ? (
                   <div
@@ -536,7 +536,7 @@ function WikiSearchInner({ fullPage = false, onClose }: WikiSearchProps) {
                 );
                 onClose?.();
               }}
-              className="w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 bg-[#f8f9fa]"
+              className="wiki-search-all w-full text-left hover:bg-[#eaf3ff] flex items-center px-4 py-3 bg-[#f8f9fa]"
               style={{
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
               }}

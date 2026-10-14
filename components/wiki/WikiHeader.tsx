@@ -4,10 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { WikiLoginModal } from './WikiLoginModal';
 import { WikiSearch } from './WikiSearch';
 import Link from 'next/link';
-
-function MinervaIcon({ name }: { name: string }) {
-  return <img className="wiki-minerva-icon" src={`/minerva/${name}.svg`} width="20" height="20" alt="" aria-hidden="true" />;
-}
+import { WikiIcon as MinervaIcon } from './WikiIcon';
 
 export function WikiHeader() {
   const [showLogin, setShowLogin] = useState(false);
@@ -17,6 +14,13 @@ export function WikiHeader() {
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const closeMenu = () => setMobileMenuOpen(false);
+
+  useEffect(() => {
+    if (!showSearch) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [showSearch]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -52,7 +56,7 @@ export function WikiHeader() {
 
           <Link href="/" className="wiki-brand flex items-center ml-1" aria-label="Wikipédia – hlavná stránka">
             <img className="wiki-globe" src="/wikipedia-logo.svg" width="48" height="48" alt="" />
-            <img className="wiki-wordmark" src="/minerva/wikipedia-wordmark.svg" width="119" height="18" alt="Wikipédia" />
+            <span className="wiki-brand-copy"><img className="wiki-wordmark" src="/minerva/wikipedia-wordmark.svg" width="119" height="18" alt="Wikipédia" /><span className="wiki-brand-tagline">Slobodná encyklopédia</span></span>
           </Link>
 
           <div className="wiki-desktop-search"><WikiSearch /></div>
@@ -68,9 +72,9 @@ export function WikiHeader() {
       </header>
 
       {showSearch && (
-        <div className="wiki-search-overlay fixed inset-0 z-50 bg-white flex flex-col" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
-          <div className="flex items-center h-[56px] px-3 bg-[#eaecf0] flex-shrink-0">
-            <button onClick={() => setShowSearch(false)} className="flex items-center justify-center w-[44px] h-[44px] -ml-2" aria-label="Zavrieť"><span className="text-2xl text-[#54595d]">×</span></button>
+        <div className="wiki-search-overlay fixed inset-0 z-50 bg-white flex flex-col" role="dialog" aria-modal="true" aria-label="Vyhľadávanie" onKeyDown={event => { if (event.key === 'Escape') setShowSearch(false); }}>
+          <div className="wiki-search-overlay-header">
+            <button onClick={() => setShowSearch(false)} className="flex items-center justify-center w-[44px] h-[44px] -ml-2" aria-label="Zavrieť"><MinervaIcon name="arrowPrevious" /></button>
             <div className="flex-1 ml-2 mr-2"><WikiSearch fullPage onClose={() => setShowSearch(false)} /></div>
           </div>
         </div>

@@ -59,23 +59,17 @@ export function WikiHomepage() {
       if (m) router.push(`/wiki/${m[1]}`);
     } else if (href.startsWith('#')) {
       e.preventDefault();
+      document.getElementById(decodeURIComponent(href.slice(1)))?.scrollIntoView();
     }
   };
 
   // ─── ŽIVÁ HLAVNÁ STRÁNKA (presný obsah z sk.wikipedia.org) ───
   if (mainPage) {
     return (
-      <div className="mw-page bg-white">
-        <div className="px-4 pt-4">
-          <h1
-            className="text-[24px] font-normal text-[#000000] pb-1"
-            style={{ fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif", lineHeight: 1.2 }}
-          >
-            Hlavná stránka
-          </h1>
-        </div>
+      <div className="mw-page wiki-homepage bg-white">
+        <h1 className="sr-only">Hlavná stránka</h1>
         <div
-          className="wiki-article-content wiki-mainpage-content px-2 pb-4"
+          className="wiki-article-content wiki-mainpage-content"
           style={{ color: '#202122' }}
           dangerouslySetInnerHTML={{ __html: mainPage.html }}
           onClick={handleLiveClick}

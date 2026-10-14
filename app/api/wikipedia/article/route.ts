@@ -70,19 +70,21 @@ async function loadArticle(request: NextRequest) {
 
     // Obrázok článku (pageimages) — opäť s redirectmi
     const imageResponse = await fetchWikipedia(
-      `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(parsed.title)}&prop=pageimages&format=json&pithumbsize=320&redirects=1`,
+      `https://sk.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(parsed.title)}&prop=pageimages%7Crevisions&rvprop=timestamp&format=json&pithumbsize=320&redirects=1`,
       {
         headers: WIKI_HEADERS,
       }
     ).catch(() => null);
 
     let imageUrl = null;
+    let lastModified: string | undefined;
     if (imageResponse?.ok) {
       const imageData = await imageResponse.json();
       const pages = imageData.query?.pages;
       if (pages) {
         const pageId = Object.keys(pages)[0];
         imageUrl = pages[pageId]?.thumbnail?.source || null;
+        lastModified = pages[pageId]?.revisions?.[0]?.timestamp;
       }
     }
 
@@ -117,6 +119,7 @@ async function loadArticle(request: NextRequest) {
       title: parsed.title,
       content: htmlContent,
       image: imageUrl,
+      lastModified,
       links,
       categories,
       redirectedFrom: parseData.redirectedFrom || null,
