@@ -2,6 +2,7 @@
 // Cieľ: aby slová v článkoch dávali zmysel v kontexte (napr. v článku o gitare
 // sa objavia pojmy z hudby, nie "Oceán")
 
+import { wikipediaLinkLabel } from './wikipedia-title';
 import {
   VOCABULARY_EXPANSION,
   VOCABULARY_EXPANSION_2,
@@ -731,7 +732,7 @@ function buildIndex(): Record<ArticleCategory, LetterPositionIndex> {
     const seen = new Set<string>();
 
     for (const word of words) {
-      const lower = word.toLowerCase();
+      const lower = wikipediaLinkLabel(word).toLowerCase();
       if (seen.has(lower)) continue;
       seen.add(lower);
 
@@ -1632,9 +1633,8 @@ function escapeArticleHtml(value: string): string {
 }
 
 function makeForceLink(word: string): string {
-  // Odkaz označuje názov samostatného hesla, preto zachová jeho presný zápis.
-  // Nové vlastné mená nesmú závisieť od neúplného ručného zoznamu mien.
-  const displayWord = word;
+  // V texte použijeme krátky názov, cieľ zostáva presným názvom hesla.
+  const displayWord = wikipediaLinkLabel(word);
   return `<a href="/wiki/${encodeURIComponent(
     word.replace(/\s+/g, '_'),
   )}" data-force-word="${escapeArticleHtml(word)}" class="force-link">${escapeArticleHtml(displayWord)}</a>`;

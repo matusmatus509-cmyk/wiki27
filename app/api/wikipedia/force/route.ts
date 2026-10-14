@@ -3,11 +3,12 @@ import titlesSnapshot from '@/data/wikipedia-titles.json';
 import { getForceWordsForLetter } from '@/lib/encyclopedia-db';
 import { detectArticleCategory, rankForceTitles } from '@/lib/force-title-ranking';
 import { fetchWikipediaResource } from '@/lib/wikipedia-fetch';
+import { wikipediaLinkLabel } from '@/lib/wikipedia-title';
 
 const known = new Set(titlesSnapshot.titles);
 const index = new Map<string, string[]>();
 for (const title of known) {
-  const letters = Array.from(title.toLocaleLowerCase('sk-SK'));
+  const letters = Array.from(wikipediaLinkLabel(title).toLocaleLowerCase('sk-SK'));
   for (let position = 1; position <= 6; position++) {
     const letter = letters[position - 1];
     if (!letter || !/\p{L}/u.test(letter)) continue;
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   const letter = (params.get('letter') || '').toLocaleLowerCase('sk-SK');
   const position = Number(params.get('position'));
   if (Array.from(letter).length !== 1 || !Number.isInteger(position) || position < 1 || position > 6) return NextResponse.json({titles:[]});
-  const matches = (word: string) => !word.endsWith('(rozlišovacia stránka)') && word.length <= 100 && Array.from(word.toLocaleLowerCase('sk-SK'))[position - 1] === letter && word.toLocaleLowerCase('sk-SK') !== title.toLocaleLowerCase('sk-SK');
+  const matches = (word: string) => !word.endsWith('(rozlišovacia stránka)') && word.length <= 100 && Array.from(wikipediaLinkLabel(word).toLocaleLowerCase('sk-SK'))[position - 1] === letter && wikipediaLinkLabel(word).toLocaleLowerCase('sk-SK') !== wikipediaLinkLabel(title).toLocaleLowerCase('sk-SK');
   const body = await request.json().catch(() => ({}));
   const categories: string[] = (Array.isArray(body.categories) ? body.categories : []).filter((value: unknown): value is string => typeof value === 'string');
   const category = detectArticleCategory(title, categories);
@@ -46,6 +47,12 @@ export async function POST(request: NextRequest) {
       }
     } catch { /* Verified snapshot titles are still usable during an outage. */ }
   }
-  const selected = rankForceTitles([...verified], title, [...articleLinks, ...contextual], categories, base).slice(0,50);
+  const visibleLabels = new Set<string>();
+  const selected = rankForceTitles([...verified], title, [...articleLinks, ...contextual], categories, base).filter(word => {
+    const label = wikipediaLinkLabel(word).toLocaleLowerCase('sk-SK');
+    if (visibleLabels.has(label)) return false;
+    visibleLabels.add(label);
+    return true;
+  }).slice(0,50);
   return NextResponse.json({titles:selected,contextualTitles:selected.filter(word => contextual.has(word))});
 }

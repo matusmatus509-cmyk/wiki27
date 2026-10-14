@@ -11,6 +11,7 @@ execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'),
   '--target', 'ES2020', '--skipLibCheck', '--esModuleInterop',
 ], { cwd: join(__dirname, '..') });
 const { generateForceArticleContent, FORCE_ARTICLE_VARIANTS } = require(join(output, 'encyclopedia-db.js'));
+const { wikipediaLinkLabel } = require(join(output, 'wikipedia-title.js'));
 after(() => rmSync(output, { recursive: true, force: true }));
 
 const words = ['Albert Einstein', 'Bratislava', 'Slovensko', 'Gitara', 'Európa', 'Dunaj'];
@@ -125,6 +126,27 @@ test('new proper names retain the exact Wikipedia spelling in visible text', () 
   const html = generateForceArticleContent('Francúzsko', 'geography', ['Argelliers', 'Mairé'], { introHtml: lead });
   assert.ok(html.includes('>Argelliers</a>'));
   assert.ok(html.includes('>Mairé</a>'));
+});
+
+test('disambiguators are omitted from visible links while canonical destinations remain intact', () => {
+  const targets = ['Akt (filozofia)', 'Autonómia (filozofia)', 'Situácia (filozofia)', 'Duna (film, 2021)', 'Príklad (film (2020))'];
+  for (let variant = 0; variant < 5; variant++) {
+    const html = generateForceArticleContent('Filozofia', 'general', targets, { introHtml: lead, variant });
+    for (const word of targets) {
+      assert.ok(html.includes(`>${wikipediaLinkLabel(word)}</a>`));
+      assert.ok(html.includes(`data-force-word="${word}"`));
+      assert.ok(html.includes(`href="/wiki/${encodeURIComponent(word.replace(/\s+/g, '_'))}"`));
+      assert.ok(!html.includes(`>${word}</a>`));
+    }
+  }
+  assert.equal(wikipediaLinkLabel('Akt (filozofia)'), 'Akt');
+  assert.equal(Array.from(wikipediaLinkLabel('Akt (filozofia)'))[5], undefined);
+  assert.equal(wikipediaLinkLabel('AC/DC'), 'AC/DC');
+  assert.equal(wikipediaLinkLabel('Mairé'), 'Mairé');
+  assert.equal(wikipediaLinkLabel('(G)I-dle'), '(G)I-dle');
+  assert.equal(wikipediaLinkLabel('Názov (časť) pokračovanie'), 'Názov (časť) pokračovanie');
+  assert.equal(wikipediaLinkLabel('Názov (neuzatvorený'), 'Názov (neuzatvorený');
+  assert.equal(wikipediaLinkLabel('Názov (prvý) (druhý)'), 'Názov');
 });
 
 

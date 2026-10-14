@@ -1,6 +1,7 @@
 "use client";
 
 import { detectArticleCategory } from '@/lib/force-title-ranking';
+import { wikipediaLinkLabel } from '@/lib/wikipedia-title';
 
 import { useWiki } from '@/lib/wiki-context';
 import { generateForceArticleContent } from '@/lib/encyclopedia-db';
@@ -92,7 +93,7 @@ export function WikiArticle({ slug }: WikiArticleProps) {
       .then((data) => {
         const expected = currentLetter.toLocaleUpperCase('sk-SK');
         const verified = ((data.titles || []) as string[]).filter((title) =>
-          Array.from(title)[config.forcePosition - 1]?.toLocaleUpperCase('sk-SK') === expected &&
+          Array.from(wikipediaLinkLabel(title))[config.forcePosition - 1]?.toLocaleUpperCase('sk-SK') === expected &&
           title.toLocaleLowerCase('sk-SK') !== actualSlug.toLocaleLowerCase('sk-SK'),
         );
         if (controller.signal.aborted) return;
