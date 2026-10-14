@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { Dices, House, LogIn, MapPin, Search, Settings, UserRound } from 'lucide-react';
 import { useWiki } from '@/lib/wiki-context';
 import { WikiLoginModal } from './WikiLoginModal';
 import { WikiSearch } from './WikiSearch';
@@ -12,172 +13,77 @@ export function WikiHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
+  const closeMenu = () => setMobileMenuOpen(false);
+
   return (
     <>
-      {/* Mobile header - Minerva Neue exact clone */}
       <header className="wiki-header z-40 bg-[#eaecf0]" style={{ boxShadow: 'none' }}>
-        <div className="wiki-header-inner flex items-center justify-between h-[48px] px-4">
-          {/* Left - Hamburger menu */}
-          <button 
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="flex items-center justify-center w-[44px] h-[44px] -ml-2"
-            aria-label="Menu"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#54595d" strokeWidth="2">
-              <path d="M3 6h18M3 12h18M3 18h18"/>
-            </svg>
+        <div className="wiki-header-inner flex items-center justify-between h-[56px] px-4">
+          <button onClick={() => setMobileMenuOpen(true)} className="wiki-menu-button flex items-center justify-center w-[44px] h-[44px] -ml-2" aria-label="Otvoriť hlavné menu" aria-expanded={mobileMenuOpen}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#54595d" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
           </button>
 
-          {/* Center - Wikipedia wordmark */}
-          <Link href="/" className="wiki-brand flex items-center ml-1">
+          <Link href="/" className="wiki-brand flex items-center ml-1" aria-label="Wikipédia – hlavná stránka">
             <img className="wiki-globe" src="/wikipedia-logo.svg" width="48" height="48" alt="" />
-            <span 
-              style={{
-                fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif",
-                fontSize: '22px',
-                fontWeight: 400,
-                color: '#54595d',
-                letterSpacing: '0.5px'
-              }}
-            >
-              <span style={{ fontVariant: 'normal', textTransform: 'uppercase' }}>W</span>
-              <span style={{ fontVariant: 'small-caps', textTransform: 'lowercase' }}>ikipédi</span>
-              <span style={{ fontVariant: 'normal', textTransform: 'uppercase' }}>A</span>
+            <span style={{fontFamily:"'Linux Libertine', 'Georgia', 'Times', serif",fontSize:'22px',fontWeight:400,color:'#54595d',letterSpacing:'0.5px'}}>
+              <span style={{fontVariant:'normal',textTransform:'uppercase'}}>W</span><span style={{fontVariant:'small-caps',textTransform:'lowercase'}}>ikipédi</span><span style={{fontVariant:'normal',textTransform:'uppercase'}}>A</span>
             </span>
           </Link>
 
           <div className="wiki-desktop-search"><WikiSearch /></div>
-          <div className="flex-1"></div>
+          <div className="flex-1" />
           <button className="wiki-desktop-login" onClick={() => setShowLogin(true)}>Prihlásiť sa</button>
-
-          {/* Right - Search icon */}
-          <button
-            onClick={() => setShowSearch(true)}
-            className="wiki-mobile-search flex items-center justify-center w-[44px] h-[44px] -mr-2"
-            aria-label="Hľadať"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#54595d" strokeWidth="2">
-              <circle cx="11" cy="11" r="7"/>
-              <path d="M21 21l-4.35-4.35"/>
-            </svg>
+          <button onClick={() => setShowSearch(true)} className="wiki-mobile-search flex items-center justify-center w-[44px] h-[44px]" aria-label="Hľadať">
+            <Search size={26} strokeWidth={2} />
+          </button>
+          <button onClick={() => setShowLogin(true)} className="wiki-mobile-account flex items-center justify-center w-[44px] h-[44px] -mr-2" aria-label="Prihlásiť sa">
+            <UserRound size={26} strokeWidth={2} />
           </button>
         </div>
       </header>
 
-      {/* Full-screen search overlay */}
       {showSearch && (
         <div className="wiki-search-overlay fixed inset-0 z-50 bg-white flex flex-col" role="dialog" aria-modal="true" aria-label="Vyhľadávanie">
-          {/* Search header */}
           <div className="flex items-center h-[56px] px-3 bg-[#eaecf0] flex-shrink-0">
-            <button
-              onClick={() => setShowSearch(false)}
-              className="flex items-center justify-center w-[44px] h-[44px] -ml-2"
-              aria-label="Zavrieť"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#54595d" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-            </button>
-            <div className="flex-1 ml-2 mr-2">
-              <WikiSearch fullPage onClose={() => setShowSearch(false)} />
-            </div>
+            <button onClick={() => setShowSearch(false)} className="flex items-center justify-center w-[44px] h-[44px] -ml-2" aria-label="Zavrieť"><span className="text-2xl text-[#54595d]">×</span></button>
+            <div className="flex-1 ml-2 mr-2"><WikiSearch fullPage onClose={() => setShowSearch(false)} /></div>
           </div>
         </div>
       )}
 
-      {/* Mobile slide-out menu - Minerva Neue style */}
       {mobileMenuOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          {/* Menu panel */}
-          <div 
-            className="fixed top-0 left-0 w-[280px] h-full bg-white z-50 overflow-y-auto"
-            style={{ boxShadow: '2px 0 4px rgba(0,0,0,0.15)' }}
-          >
-            {/* Menu header with close button */}
-            <div className="flex items-center justify-between px-4 h-[48px] border-b border-[#eaecf0]">
-              <span 
-                className="text-[16px] text-[#202122]"
-                style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}
-              >
-                Menu
-              </span>
-              <button 
-                onClick={() => setMobileMenuOpen(false)} 
-                className="flex items-center justify-center w-[40px] h-[40px] -mr-2"
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="#54595d">
-                  <path d="M4.34 2.93l12.73 12.73-1.41 1.41L2.93 4.34z"/>
-                  <path d="M17.07 4.34L4.34 17.07l-1.41-1.41L15.66 2.93z"/>
-                </svg>
-              </button>
+        <div className="wiki-mobile-drawer-layer fixed inset-0 z-50" role="presentation">
+          <button className="wiki-mobile-drawer-backdrop absolute inset-0 bg-black/40" onClick={closeMenu} aria-label="Zavrieť menu" />
+          <nav className="wiki-mobile-drawer relative h-full overflow-y-auto" aria-label="Hlavné menu">
+            <div className="wiki-drawer-links">
+              <Link href="/" onClick={closeMenu}><House /><span>Domov</span></Link>
+              <a href="https://sk.wikipedia.org/wiki/Special:Random" onClick={closeMenu}><Dices /><span>Náhodná</span></a>
+              <a href="https://sk.wikipedia.org/wiki/Špeciálne:Blízko_mňa" onClick={closeMenu}><MapPin /><span>V okolí</span></a>
             </div>
 
-            {/* Menu content */}
-            <nav style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
-              {/* Hlavné menu */}
-              <div className="border-b border-[#eaecf0]">
-                <Link 
-                  href="/" 
-                  className="flex items-center px-4 py-3 text-[14px] text-[#0645ad]"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Hlavná stránka
-                </Link>
-                <a href="#" className="flex items-center px-4 py-3 text-[14px] text-[#0645ad]">
-                  Náhodný článok
-                </a>
-                <a href="#" className="flex items-center px-4 py-3 text-[14px] text-[#0645ad]">
-                  Blízko mňa
-                </a>
-              </div>
+            <div className="wiki-drawer-separator" />
+            <div className="wiki-drawer-links">
+              <a href="https://sk.wikipedia.org/w/index.php?title=Špeciálne:Vytvoriť_účet" onClick={closeMenu}><UserRound /><span>Vytvoriť účet</span></a>
+              <button onClick={() => { setShowLogin(true); closeMenu(); }}><LogIn /><span>Prihlásiť sa</span>{isAdminMode && <i />}</button>
+            </div>
 
-              {/* Prihlásiť sa */}
-              <div className="border-b border-[#eaecf0]">
-                <button 
-                  onClick={() => { setShowLogin(true); setMobileMenuOpen(false); }}
-                  className="flex items-center w-full px-4 py-3 text-[14px] text-[#0645ad] text-left relative"
-                >
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="#54595d" className="mr-3">
-                    <path d="M10 11c-5.92 0-8 3-8 5v3h16v-3c0-2-2.08-5-8-5z"/>
-                    <circle cx="10" cy="5.5" r="4.5"/>
-                  </svg>
-                  Prihlásiť sa
-                  {isAdminMode && (
-                    <span className="absolute right-4 w-2 h-2 bg-[#d33] rounded-full"></span>
-                  )}
-                </button>
-              </div>
+            <div className="wiki-drawer-separator" />
+            <div className="wiki-drawer-links">
+              <button onClick={() => { setShowLogin(true); closeMenu(); }}><Settings /><span>Nastavenia</span></button>
+            </div>
 
-              {/* Nastavenia */}
-              <div className="border-b border-[#eaecf0]">
-                <a href="#" className="flex items-center px-4 py-3 text-[14px] text-[#0645ad]">
-                  <svg width="18" height="18" viewBox="0 0 20 20" fill="#54595d" className="mr-3">
-                    <path d="M10 1l-1 3H6l2.5 2-1 3L10 7l2.5 2-1-3L14 4h-3L10 1zm0 6a3 3 0 100 6 3 3 0 000-6zm-7 3a7 7 0 1014 0 7 7 0 00-14 0z"/>
-                  </svg>
-                  Nastavenia
-                </a>
-              </div>
+            <section className="wiki-drawer-donation">
+              <a className="wiki-drawer-donation-title" href="https://donate.wikimedia.org/?uselang=sk" onClick={closeMenu}>Podporiť teraz</a>
+              <p>Ak je vám Wikipédia užitočná,<br/>prosím, darujte dnes.</p>
+              <span className="wiki-donation-icon" aria-hidden="true">📦</span>
+            </section>
 
-              {/* O Wikipédii */}
-              <div className="py-2">
-                <div className="px-4 py-2 text-[12px] text-[#72777d] uppercase tracking-wide">
-                  O Wikipédii
-                </div>
-                <a href="#" className="flex items-center px-4 py-3 text-[14px] text-[#0645ad]">
-                  Informácie o Wikipédii
-                </a>
-                <a href="#" className="flex items-center px-4 py-3 text-[14px] text-[#0645ad]">
-                  Vylúčenie zodpovednosti
-                </a>
-              </div>
-            </nav>
-          </div>
-        </>
+            <footer className="wiki-drawer-footer">
+              <a href="https://sk.wikipedia.org/wiki/Wikipédia:O_nás" onClick={closeMenu}>O Wikipédii</a>
+              <a href="https://sk.wikipedia.org/wiki/Wikipédia:Vylúčenie_zodpovednosti" onClick={closeMenu}>Zrieknutie sa zodpovednosti</a>
+            </footer>
+          </nav>
+        </div>
       )}
 
       <WikiLoginModal isOpen={showLogin} onClose={() => setShowLogin(false)} />

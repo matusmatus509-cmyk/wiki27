@@ -846,6 +846,53 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helve
 .wiki-footer-body nav { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; }
 .wiki-footer-brands { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 20px; }
 .wiki-footer-brands img { object-fit: contain; }
+.wiki-mobile-account { color: #54595d; }
+.wiki-mobile-drawer-layer { color: #54595d; }
+.wiki-mobile-drawer-backdrop { border: 0; background: rgb(0 0 0 / 42%); }
+.wiki-mobile-drawer {
+  width: min(80vw, 440px);
+  background: #fff;
+  color: #54595d;
+  box-shadow: 2px 0 8px rgb(0 0 0 / 16%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+.wiki-drawer-links { background: #fff; }
+.wiki-drawer-links > a, .wiki-drawer-links > button {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 72px;
+  align-items: center;
+  gap: 14px;
+  padding: 0 22px;
+  border: 0;
+  border-bottom: 1px solid #c8ccd1;
+  background: #fff;
+  color: #54595d;
+  text-align: left;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 650;
+}
+.wiki-drawer-links > a:active, .wiki-drawer-links > button:active { background: #eaecf0; }
+.wiki-drawer-links svg { width: 27px; height: 27px; flex: none; stroke-width: 2.5; }
+.wiki-drawer-links i { position: absolute; right: 22px; width: 9px; height: 9px; border-radius: 50%; background: #d33; }
+.wiki-drawer-separator { height: 18px; background: #eaecf0; }
+.wiki-drawer-donation {
+  position: relative;
+  min-height: 168px;
+  padding: 22px 20px 20px;
+  background: #fff;
+  border-bottom: 1px solid #c8ccd1;
+}
+.wiki-drawer-donation-title { display: inline-block; color: #36c; text-decoration: none; font-size: 18px; font-weight: 700; }
+.wiki-drawer-donation p { margin: 28px 0 0; color: #54595d; font-size: 17px; line-height: 1.45; }
+.wiki-donation-icon { position: absolute; left: 76%; bottom: 25px; font-size: 21px; }
+.wiki-drawer-footer { display: flex; flex-direction: column; gap: 0; min-height: 100%; padding: 0 20px; background: #eaecf0; }
+.wiki-drawer-footer a { display: block; padding: 16px 0; color: #54595d; text-decoration: none; font-size: 17px; }
+@media (min-width: 1000px) {
+  .wiki-mobile-account, .wiki-menu-button { display: none; }
+}
 @media (min-width: 1000px) {
   .wiki-footer-history { display: none; }
   .wiki-footer-body { border-top: 1px solid #a2a9b1; background: #fff; padding: 24px 0; }
