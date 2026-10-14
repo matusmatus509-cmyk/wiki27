@@ -846,52 +846,81 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helve
 .wiki-footer-body nav { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; }
 .wiki-footer-brands { display: flex; justify-content: flex-end; align-items: center; gap: 16px; margin-top: 20px; }
 .wiki-footer-brands img { object-fit: contain; }
+/* Minerva Neue mobile chrome: original wordmark, icons and compact menu metrics. */
+.wiki-minerva-icon { display: block; flex: none; width: 20px; height: 20px; }
+.wiki-wordmark { display: block; width: 119px; height: 18px; opacity: 0.67; }
 .wiki-mobile-account { color: #54595d; }
 .wiki-mobile-drawer-layer { color: #54595d; }
-.wiki-mobile-drawer-backdrop { border: 0; background: rgb(0 0 0 / 42%); }
+.wiki-mobile-drawer-backdrop { border: 0; background: rgb(0 0 0 / 40%); }
 .wiki-mobile-drawer {
-  width: min(80vw, 440px);
-  background: #fff;
+  display: flex;
+  flex-direction: column;
+  width: 80%;
+  min-width: min(275px, 80vw);
+  max-width: 80%;
+  background: #eaecf0;
   color: #54595d;
-  box-shadow: 2px 0 8px rgb(0 0 0 / 16%);
+  box-shadow: 0 4px 4px rgb(0 0 0 / 6%), 0 0 8px rgb(0 0 0 / 6%);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  overscroll-behavior: contain;
 }
-.wiki-drawer-links { background: #fff; }
+.wiki-drawer-links { flex: none; background: #fff; }
 .wiki-drawer-links > a, .wiki-drawer-links > button {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 72px;
+  height: 44px;
   align-items: center;
-  gap: 14px;
-  padding: 0 22px;
+  gap: 8px;
+  padding: 0 14px;
   border: 0;
-  border-bottom: 1px solid #c8ccd1;
+  border-top: 1px solid #dadde3;
   background: #fff;
   color: #54595d;
   text-align: left;
   text-decoration: none;
-  font-size: 18px;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
 }
+.wiki-drawer-links > :first-child { border-top: 0; }
 .wiki-drawer-links > a:active, .wiki-drawer-links > button:active { background: #eaecf0; }
-.wiki-drawer-links svg { width: 27px; height: 27px; flex: none; stroke-width: 2.5; }
-.wiki-drawer-links i { position: absolute; right: 22px; width: 9px; height: 9px; border-radius: 50%; background: #d33; }
-.wiki-drawer-separator { height: 18px; background: #eaecf0; }
-.wiki-drawer-donation {
-  position: relative;
-  min-height: 168px;
-  padding: 22px 20px 20px;
-  background: #fff;
-  border-bottom: 1px solid #c8ccd1;
+@media (hover: hover) {
+  .wiki-drawer-links > a:hover, .wiki-drawer-links > button:hover { box-shadow: inset 4px 0 #36c; }
 }
-.wiki-drawer-donation-title { display: inline-block; color: #36c; text-decoration: none; font-size: 18px; font-weight: 700; }
-.wiki-drawer-donation p { margin: 28px 0 0; color: #54595d; font-size: 17px; line-height: 1.45; }
-.wiki-donation-icon { position: absolute; left: 76%; bottom: 25px; font-size: 21px; }
-.wiki-drawer-footer { display: flex; flex-direction: column; gap: 0; min-height: 100%; padding: 0 20px; background: #eaecf0; }
-.wiki-drawer-footer a { display: block; padding: 16px 0; color: #54595d; text-decoration: none; font-size: 17px; }
+.wiki-mobile-drawer a:focus-visible, .wiki-mobile-drawer button:focus-visible { outline: 2px solid #36c; outline-offset: -2px; }
+.wiki-drawer-separator { flex: none; height: 22px; background: #eaecf0; }
+.wiki-drawer-donation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 12px;
+  background: #fff;
+  color: #36c;
+  text-decoration: none;
+  font-size: 14px;
+}
+.wiki-drawer-donation-copy { display: flex; flex-direction: column; flex: 1; min-width: 0; max-width: 200px; }
+.wiki-drawer-donation-title { display: block; margin-bottom: 15px; color: #36c; font-size: 14px; font-weight: 700; }
+.wiki-drawer-donation-subtitle { display: block; color: #54595d; font-weight: 400; line-height: 1.5; }
+.wiki-drawer-donation picture { flex: none; width: 75px; }
+.wiki-donation-image { width: 75px; height: 75px; object-fit: contain; }
+.wiki-drawer-footer { flex: 1; display: flex; flex-direction: column; padding: 0 12px; background: #eaecf0; }
+.wiki-drawer-footer a { display: block; padding: 8px 0; color: #54595d; text-decoration: none; font-size: 14px; }
+@media (max-width: 999px) {
+  .wiki-header { padding: 0; box-shadow: inset 0 -1px 3px rgb(0 0 0 / 8%) !important; }
+  .wiki-header-inner { width: 90%; max-width: 993.3px; height: 54px !important; padding: 0 !important; margin: 0 auto; }
+  .wiki-menu-button { flex: none; margin-left: -12px; }
+  .wiki-brand { flex: none; margin-left: 5px; }
+  .wiki-mobile-search { flex: none; margin: 0; }
+  .wiki-mobile-account { flex: none; margin-right: -12px; }
+}
 @media (min-width: 1000px) {
   .wiki-mobile-account, .wiki-menu-button { display: none; }
+  .wiki-brand .wiki-wordmark { width: 150px; height: auto; opacity: 1; }
 }
 @media (min-width: 1000px) {
   .wiki-footer-history { display: none; }
